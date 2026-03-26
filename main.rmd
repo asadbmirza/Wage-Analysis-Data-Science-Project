@@ -1,8 +1,8 @@
 ---
 title: "The Glass Ceiling: Does Education Equitably Predict Wages for Ontario Immigrants?"
 author:
-  - "Asad Mirza"
   - "Moiz Mohammad"
+  - "Asad Mirza"
   - "Ishan Amin"
 date: "`r Sys.Date()`"
 documentclass: article
@@ -19,44 +19,209 @@ output:
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+# Set eval=TRUE on analysis chunks once your data path and cleaning are ready.
+knitr::opts_chunk$set(
+  echo = TRUE,
+  message = FALSE,
+  warning = FALSE,
+  fig.width = 8,
+  fig.height = 5,
+  fig.align = "center",
+  eval = FALSE
+)
 ```
 
 ## Project overview
 
-This project examines whether **education** predicts **wages** in a similar way for **immigrants in Ontario** as it might for other groups—or whether systematic differences suggest barriers consistent with a **glass ceiling** (e.g., credentials not translating equally into earnings). We use data-science methods to describe the relationship between schooling and income and to test whether that relationship differs in ways that raise equity questions.
+This project examines whether **education** predicts **wages** in a similar way for **immigrants in Ontario** as it might for other groups---or whether systematic differences suggest barriers consistent with a **glass ceiling** (e.g., credentials not translating equally into earnings). We combine exploratory work, inference, and modeling to connect Ontario labour data to that question.
 
 ## Core team
 
-| Role        | Name          |
-|-------------|---------------|
-| Core worker | Asad Mirza    |
-| Core worker | Moiz Mohammad |
-| Core worker | Ishan Amin    |
+| Role        | Name          | Report segment (draft) |
+|-------------|---------------|-------------------------|
+| Student 1   | Moiz Mohammad | Foundation and visuals (pp. 1--2.5) |
+| Student 2   | Asad Mirza    | Inference (pp. 2.5--5) |
+| Student 3   | Ishan Amin    | Model, validation, conclusion (pp. 5--7.5+) |
 
-## Research questions (draft)
+## Research questions
 
 1. How strongly is educational attainment associated with wages among Ontario residents with an immigrant background?
-2. Does the education–wage gradient differ by gender, region within Ontario, immigrant class, or years since landing (hypotheses tied to “glass ceiling” and unequal returns to human capital)?
-3. After controlling for relevant covariates, do we still see disparities that suggest education does **not** equitably predict wages for this population?
+2. Does the education--wage gradient differ by gender, region, immigrant class, or years since landing?
+3. After controlling for relevant covariates, do disparities remain that suggest education does **not** equitably predict wages for this population?
 
-## Data and methods (to be specified)
+---
 
-- **Data sources:** To be finalized (e.g., public microdata or summary tables from Statistics Canada relevant to labour income, education, immigration status, and geography—Ontario).
-- **Variables:** Outcome (e.g., wages or earnings); key predictor (education); controls (age, gender, tenure, occupation/industry if available, etc.).
-- **Analysis:** Exploratory summaries and visualizations; regression or similar models to quantify associations and interactions; sensitivity checks as appropriate.
+**LABEL --- Page budget (remove this block before submission):** Each person should target roughly **2.5 pages** of *content* (text + code + plots). In practice that is often about **one page of prose** and **~1.5 pages of output/figures**. If the PDF runs short, prefer **larger figures** (chunk options `fig.width` / `fig.height`), **policy context** (e.g., minimum wage, immigration targets), and **interpretation** (what p-values and coefficients mean for a student in Ontario), not filler.
 
-```{r libraries}
-# Add packages as the analysis develops, e.g.:
+---
+
+```{r libraries, eval=TRUE}
+# Shared packages; add others (e.g., boot, broom, modelsummary) as needed.
 # library(tidyverse)
+# library(knitr)
+# library(kableExtra)  # optional: nicer tables in PDF
 ```
 
-## Next steps
+```{r data-load-moiz}
+# MOIZ: Load Ontario / Ministry of Labour (or chosen) data; document exact file/source in References.
+# Use a project-relative path or here::here(); do not commit secrets or restricted microdata.
+# wages_raw <- readr::read_csv(here::here("data", "your_file.csv"))
+# wages <- wages_raw  # then filter, rename, handle "Total" rows and missing values (see Data dictionary).
+```
 
-- Lock in data source(s) and access path (file paths or API keys in a local `.Renviron`, not committed).
-- Reproduce a clean analytic sample (Ontario, immigrants, key variables complete).
-- Draft results and interpretation with explicit connection to the “glass ceiling” framing.
+## LABEL: Student 1 (Moiz) --- The Foundation and Visuals
+
+### Target: approximately pages 1--2.5 (background, dictionary, EDA)
+
+### Background (Ontario Ministry of Labour)
+
+**LABEL (remove before submission):** Aim for ~0.5 page. Summarize why the Ontario Ministry of Labour tracks wages by education, who the intended users are (policy, employers, workers, researchers), and how that motivates your variables. Cite the Ministry pages or publications you use.
+
+*(Replace this paragraph with Moiz's narrative.)*
+
+### Data dictionary
+
+**LABEL (remove before submission):** ~0.5 page. Define each analysis variable (e.g., `wage_rate`, `education_level`, year, geography). State how you treated missing values, duplicates, and aggregate **"Total"** rows (dropped vs. kept).
+
+| Variable name (in R) | Description | Type / units | Notes (missing, "Total" rows, etc.) |
+|------------------------|-------------|--------------|-------------------------------------|
+| `wage_rate`            |             |              |                                     |
+| `education_level`      |             |              |                                     |
+| *(add rows)*           |             |              |                                     |
+
+### Exploratory data analysis
+
+**LABEL (remove before submission):** ~1.5 pages including Table 1 and two graphs. Use chunk options to resize figures if needed (defaults are already 8 x 5 in `setup`).
+
+```{r table1-summary-moiz}
+# MOIZ: Table 1 --- summary statistics (mean, median, SD) of wages by education level.
+# wages %>%
+#   group_by(education_level) %>%
+#   summarise(
+#     n = n(),
+#     mean_wage = mean(wage_rate, na.rm = TRUE),
+#     median_wage = median(wage_rate, na.rm = TRUE),
+#     sd_wage = sd(wage_rate, na.rm = TRUE)
+#   ) %>%
+#   knitr::kable(digits = 2, caption = "Table 1: Wage summary statistics by education level")
+```
+
+```{r graph1-boxplot-moiz, fig.cap="Graph 1: Wage distribution by education level (boxplots)."}
+# MOIZ: Graph 1 --- boxplot of wage by education level (reorder factor levels logically if needed).
+# ggplot(wages, aes(x = education_level, y = wage_rate)) +
+#   geom_boxplot(outlier.alpha = 0.4) +
+#   labs(x = "Education level", y = "Wage (specify: hourly / weekly)") +
+#   theme_minimal() +
+#   theme(axis.text.x = element_text(angle = 35, hjust = 1))
+```
+
+```{r graph2-line-moiz, fig.cap="Graph 2: Trend in mean wages over time for university degree vs. high school."}
+# MOIZ: Graph 2 --- line graph: mean wage by year for "University degree" vs "High school" (match exact labels in your data).
+# wages_trend <- wages %>%
+#   filter(education_level %in% c("University degree", "High school")) %>%
+#   group_by(year, education_level) %>%
+#   summarise(mean_wage = mean(wage_rate, na.rm = TRUE), .groups = "drop")
+# ggplot(wages_trend, aes(x = year, y = mean_wage, color = education_level)) +
+#   geom_line(linewidth = 1) +
+#   geom_point() +
+#   labs(x = "Year", y = "Mean wage", color = "Education") +
+#   theme_minimal()
+```
+
+\newpage
+
+## LABEL: Student 2 (Asad) --- The Inference Specialist
+
+### Target: approximately pages 2.5--5 (tests, CIs, bootstrap)
+
+### Hypothesis testing
+
+**LABEL (remove before submission):** ~1 page. State **null** and **alternative** hypotheses clearly. Run either a **two-sample t-test** (e.g., men vs. women, or born in Canada vs. immigrants) or **ANOVA** across education levels. Report the **test statistic**, **df** (if applicable), and **p-value**, and interpret in plain language tied to Ontario wages.
+
+*(Replace with Asad's write-up.)*
+
+```{r hypothesis-tests-asad}
+# ASAD: Example skeletons---choose what matches your research question and variable types.
+# t.test(wage_rate ~ group_var, data = wages)
+# aov(wage_rate ~ education_level, data = wages) |> summary()
+# For ANOVA assumptions / post-hoc: consider mentioning checks briefly in text.
+```
+
+### Confidence intervals
+
+**LABEL (remove before submission):** ~0.5 page. **95% confidence intervals** for the mean wage in the **highest** and **lowest** education groups (define which categories those are). Explain what "95% confident" means **without** saying "the probability the true mean is in the interval is 95%" in a misleading way.
+
+```{r ci-asad}
+# ASAD: 95% CIs for mean wage in two education groups (example pattern).
+# high <- wages %>% filter(education_level == "University degree")
+# low  <- wages %>% filter(education_level == "High school")
+# t.test(high$wage_rate)$conf.int
+# t.test(low$wage_rate)$conf.int
+```
+
+### Bootstrapping
+
+**LABEL (remove before submission):** ~1 page. Use the **`boot`** package with **B = 1000** (or similar) resamples. Plot a **histogram** of the bootstrap distribution (e.g., bootstrap mean difference or mean wage). Explain why bootstrapping helps when wages may be **skewed** or **non-normal**.
+
+```{r bootstrap-asad, fig.cap="Histogram of bootstrap replicates (customize title after you choose the statistic)."}
+# ASAD: Define a statistic function for boot::boot(); R = 1000.
+# library(boot)
+# stat_mean <- function(x, i) mean(x[i], na.rm = TRUE)
+# boot_out <- boot::boot(wages$wage_rate, statistic = stat_mean, R = 1000)
+# hist(boot_out$t, main = "Bootstrap distribution of mean wage", xlab = "Replicate mean")
+# boot.ci(boot_out, type = c("perc", "bca"))
+```
+
+\newpage
+
+## LABEL: Student 3 (Ishan) --- The Model and Conclusion
+
+### Target: approximately pages 5--7.5+ (regression, CV, summary, appendix)
+
+### Regression analysis
+
+**LABEL (remove before submission):** ~1.5 pages. Fit **multiple linear regression**, e.g. `lm(wage ~ education + immigration_status)` (add controls if your dictionary includes them). Present a **regression table**. **Interpret coefficients**: e.g., if a level "University degree" has a coefficient of 500, state that it is associated with **$500 higher weekly wages holding immigration status constant** (only if that matches your outcome scale---adjust wording to your units).
+
+```{r regression-ishan}
+# ISHAN: Use factors with a clear reference level; check linear model assumptions in text or brief diagnostics.
+# fit <- lm(wage_rate ~ education_level + immigration_status, data = wages)
+# summary(fit)
+# Table: consider broom::tidy(fit), stargazer, gtsummary::tbl_regression, or modelsummary::modelsummary(list(fit))
+```
+
+### Cross-validation
+
+**LABEL (remove before submission):** ~0.5 page. **Train/test split**; report **RMSE** (or RMSE on a held-out set) so readers see **prediction error**, not only in-sample fit.
+
+```{r cross-validation-ishan}
+# ISHAN: Example: 80/20 split; RMSE on test set.
+# set.seed(123)
+# n <- nrow(wages)
+# train_idx <- sample.int(n, size = floor(0.8 * n))
+# train <- wages[train_idx, ]
+# test  <- wages[-train_idx, ]
+# fit_train <- lm(wage_rate ~ education_level + immigration_status, data = train)
+# pred <- predict(fit_train, newdata = test)
+# sqrt(mean((test$wage_rate - pred)^2, na.rm = TRUE))
+```
+
+### Summary and conclusion
+
+**LABEL (remove before submission):** ~0.5 page. Tie Moiz's EDA, Asad's inference, and your model together: **does Ontario's data suggest a fair return to education**, especially for immigrants? Link back to the **glass ceiling** framing and policy relevance.
+
+*(Replace with Ishan's synthesis.)*
+
+\newpage
+
+## Appendix: All code
+
+**LABEL (remove before submission):** Ensure this lists the final, clean versions of everyone's chunks (knitr will pull in the labeled chunks below). If you rename chunks, update `ref.label` accordingly.
+
+```{r appendix-all-code, ref.label=c("libraries", "data-load-moiz", "table1-summary-moiz", "graph1-boxplot-moiz", "graph2-line-moiz", "hypothesis-tests-asad", "ci-asad", "bootstrap-asad", "regression-ishan", "cross-validation-ishan"), echo=TRUE, eval=FALSE}
+```
 
 ## References
 
-- Placeholder: cite Statistics Canada products and any methods papers once chosen.
+- Ontario Ministry of Labour / Government of Ontario. *(Add exact titles and URLs.)*
+- Statistics Canada or other data sources. *(Add citations.)*
+- Methods: `boot` package (Canty and Ripley); regression texts as assigned.
