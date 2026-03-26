@@ -1,0 +1,62 @@
+---
+title: "The Glass Ceiling: Does Education Equitably Predict Wages for Ontario Immigrants?"
+author:
+  - "Asad Mirza"
+  - "Moiz Mohammad"
+  - "Ishan Amin"
+date: "`r Sys.Date()`"
+documentclass: article
+fontsize: 11pt
+geometry: margin=1in
+header-includes:
+  - '\linespread{1.15}\selectfont'
+output:
+  pdf_document:
+    toc: true
+    number_sections: true
+    fig_caption: true
+    latex_engine: xelatex
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+```
+
+## Project overview
+
+This project examines whether **education** predicts **wages** in a similar way for **immigrants in Ontario** as it might for other groups—or whether systematic differences suggest barriers consistent with a **glass ceiling** (e.g., credentials not translating equally into earnings). We use data-science methods to describe the relationship between schooling and income and to test whether that relationship differs in ways that raise equity questions.
+
+## Core team
+
+| Role        | Name          |
+|-------------|---------------|
+| Core worker | Asad Mirza    |
+| Core worker | Moiz Mohammad |
+| Core worker | Ishan Amin    |
+
+## Research questions (draft)
+
+1. How strongly is educational attainment associated with wages among Ontario residents with an immigrant background?
+2. Does the education–wage gradient differ by gender, region within Ontario, immigrant class, or years since landing (hypotheses tied to “glass ceiling” and unequal returns to human capital)?
+3. After controlling for relevant covariates, do we still see disparities that suggest education does **not** equitably predict wages for this population?
+
+## Data and methods (to be specified)
+
+- **Data sources:** To be finalized (e.g., public microdata or summary tables from Statistics Canada relevant to labour income, education, immigration status, and geography—Ontario).
+- **Variables:** Outcome (e.g., wages or earnings); key predictor (education); controls (age, gender, tenure, occupation/industry if available, etc.).
+- **Analysis:** Exploratory summaries and visualizations; regression or similar models to quantify associations and interactions; sensitivity checks as appropriate.
+
+```{r libraries}
+# Add packages as the analysis develops, e.g.:
+# library(tidyverse)
+```
+
+## Next steps
+
+- Lock in data source(s) and access path (file paths or API keys in a local `.Renviron`, not committed).
+- Reproduce a clean analytic sample (Ontario, immigrants, key variables complete).
+- Draft results and interpretation with explicit connection to the “glass ceiling” framing.
+
+## References
+
+- Placeholder: cite Statistics Canada products and any methods papers once chosen.
