@@ -57,16 +57,22 @@ This project examines whether **education** predicts **wages** in a similar way 
 
 ```{r libraries, eval=TRUE}
 # Shared packages; add others (e.g., boot, broom, modelsummary) as needed.
-# library(tidyverse)
-# library(knitr)
-# library(kableExtra)  # optional: nicer tables in PDF
+library(tidyverse)
+library(knitr)
+library(kableExtra)  # optional: nicer tables in PDF
 ```
 
 ```{r data-load-moiz}
-# MOIZ: Load Ontario / Ministry of Labour (or chosen) data; document exact file/source in References.
-# Use a project-relative path or here::here(); do not commit secrets or restricted microdata.
-# wages_raw <- readr::read_csv(here::here("data", "your_file.csv"))
-# wages <- wages_raw  # then filter, rename, handle "Total" rows and missing values (see Data dictionary).
+# MOIZ: readr::read_csv() is preferred over read.csv(): faster, tibbles, consistent parsing, progress bar.
+# trim_ws = TRUE helps columns like WAGE RATE / EDUCATION that have leading spaces in this file.
+# show_col_types = FALSE keeps knit/PDF output shorter (omit if you want to see column guesses).
+wages_raw <- readr::read_csv(
+  "data.csv",
+  trim_ws = TRUE,
+  show_col_types = FALSE
+)
+
+wages <- wages_raw
 ```
 
 ## LABEL: Student 1 (Moiz) --- The Foundation and Visuals
