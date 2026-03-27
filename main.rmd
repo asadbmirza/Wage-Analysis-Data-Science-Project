@@ -7,7 +7,7 @@ author:
 date: "`r Sys.Date()`"
 documentclass: article
 fontsize: 11pt
-geometry: margin=1in
+geometry: margin=0.5in
 header-includes:
   - '\linespread{1.15}\selectfont'
 output:
@@ -21,7 +21,7 @@ output:
 ```{r setup, include=FALSE}
 # Set eval=TRUE on analysis chunks once your data path and cleaning are ready.
 knitr::opts_chunk$set(
-  echo = TRUE,
+  echo = FALSE,
   message = FALSE,
   warning = FALSE,
   fig.width = 8,
@@ -33,15 +33,7 @@ knitr::opts_chunk$set(
 
 ## Project overview
 
-This project examines whether **education** predicts **wages** in a similar way for **immigrants in Ontario** as it might for other groups---or whether systematic differences suggest barriers consistent with a **glass ceiling** (e.g., credentials not translating equally into earnings). We combine exploratory work, inference, and modeling to connect Ontario labour data to that question.
-
-## Core team
-
-| Role        | Name          | Report segment (draft) |
-|-------------|---------------|-------------------------|
-| Student 1   | Moiz Mohammad | Foundation and visuals (pp. 1--2.5) |
-| Student 2   | Asad Mirza    | Inference (pp. 2.5--5) |
-| Student 3   | Ishan Amin    | Model, validation, conclusion (pp. 5--7.5+) |
+This project examines whether **education** predicts **wages** in a similar way for **immigrants in Ontario** as it might for other groups, or whether systematic differences suggest barriers consistent with a **glass ceiling** (e.g., credentials not translating equally into earnings). We combine exploratory work, inference, and modeling to connect Ontario labour data to that question.
 
 ## Research questions
 
@@ -49,14 +41,8 @@ This project examines whether **education** predicts **wages** in a similar way 
 2. Does the education--wage gradient differ by gender, region, immigrant class, or years since landing?
 3. After controlling for relevant covariates, do disparities remain that suggest education does **not** equitably predict wages for this population?
 
----
-
-**LABEL --- Page budget (remove this block before submission):** Each person should target roughly **2.5 pages** of *content* (text + code + plots). In practice that is often about **one page of prose** and **~1.5 pages of output/figures**. If the PDF runs short, prefer **larger figures** (chunk options `fig.width` / `fig.height`), **policy context** (e.g., minimum wage, immigration targets), and **interpretation** (what p-values and coefficients mean for a student in Ontario), not filler.
-
----
-
 ```{r libraries, eval=TRUE}
-# Shared packages; add others (e.g., boot, broom, modelsummary) as needed.
+# Shared packages;
 library(tidyverse)
 library(knitr)
 library(kableExtra)  # optional: nicer tables in PDF
@@ -75,64 +61,210 @@ wages_raw <- readr::read_csv(
 wages <- wages_raw
 ```
 
-## LABEL: Student 1 (Moiz) --- The Foundation and Visuals
+## The Foundation and Visuals
 
-### Target: approximately pages 1--2.5 (background, dictionary, EDA)
+### Background: Ontario Ministry of Labour, Immigration, Training and Skills Development
 
-### Background (Ontario Ministry of Labour)
+The Ontario Ministry of Labour, Immigration, Training and Skills Development (MLITSD) collects and publishes wage data as part of its mandate to monitor labour market equity, inform evidence-based policy, and provide transparency to workers, employers, researchers, and the public. The dataset used in this analysis, *Wages by Education Level*, is published under the Open Government Licence, Ontario and tracks median hourly wages disaggregated by educational attainment, immigrant status, age group, sex, type of employment, and geography, spanning the years 2006 to 2024 across Canada and Ontario.
 
-**LABEL (remove before submission):** Aim for ~0.5 page. Summarize why the Ontario Ministry of Labour tracks wages by education, who the intended users are (policy, employers, workers, researchers), and how that motivates your variables. Cite the Ministry pages or publications you use.
+The Ministry's interest in these data is twofold. First, from a labour standards perspective, understanding how wages vary by educational credential helps the government assess whether Ontario's investment in post-secondary infrastructure and immigration programming is translating into equitable labour market returns. Second, Ontario's immigration system, especially the Ontario Immigrant Nominee Program (OINP), explicitly selects newcomers on the basis of education and skills, creating an implicit promise that higher credentials will be rewarded in the labour market. When that promise is not kept, the result is a structural barrier commonly described as the **glass ceiling**: a situation in which qualified individuals are prevented from reaching their full earning potential not because of their skills, but because of systemic factors tied to their background.
 
-*(Replace this paragraph with Moiz's narrative.)*
+For immigrants specifically, wage gaps relative to Canadian-born workers are a well-documented phenomenon in the economics literature. Research by Statistics Canada and the Institute for Research on Public Policy has consistently shown that even when education levels are held constant, immigrants, particularly recent arrivals, earn substantially less than their Canadian-born counterparts. This dataset is therefore valuable not merely as a descriptive record of wages, but as a diagnostic tool for identifying where and when the education-wage relationship breaks down. By comparing wage trajectories across immigrant categories (very recent, recent, and established immigrants) and educational attainment levels, we can begin to quantify the degree to which credentials are, or are not, equitably rewarded in Ontario's labour market.
 
-### Data dictionary
+This section lays the foundation for that analysis: it defines the variables, describes the data cleaning decisions, and presents exploratory visualizations that establish the patterns we will subject to formal statistical testing in subsequent sections.
 
-**LABEL (remove before submission):** ~0.5 page. Define each analysis variable (e.g., `wage_rate`, `education_level`, year, geography). State how you treated missing values, duplicates, and aggregate **"Total"** rows (dropped vs. kept).
 
-| Variable name (in R) | Description | Type / units | Notes (missing, "Total" rows, etc.) |
-|------------------------|-------------|--------------|-------------------------------------|
-| `wage_rate`            |             |              |                                     |
-| `education_level`      |             |              |                                     |
-| *(add rows)*           |             |              |                                     |
+### Data Dictionary
 
-### Exploratory data analysis
+The raw dataset contains one row per unique combination of year, geography, immigrant status, type of work, education level, and age group. Wage values are stored in three separate columns — `Both sexes`, `Men`, and `Women`, representing the **median hourly wage** in Canadian dollars for each group. Our analysis uses `Both sexes` as the primary outcome variable unless a gender-disaggregated comparison is specified.
 
-**LABEL (remove before submission):** ~1.5 pages including Table 1 and two graphs. Use chunk options to resize figures if needed (defaults are already 8 x 5 in `setup`).
+| Column name  | Description                                                                                      | Type / Units                                       | Notes                                                                                                               |
+|--------------------------|--------------------------------------------------------------------------------------------------|----------------------------------------------------|---------------------------------------------------------------|
+| `YEAR`           | Calendar year of the observation                                                                 | Integer (2006–2024)                                | No missing values                                                                                                   |
+| `GEOGRAPHY`      | Geographic scope of the record                                                                   | Categorical (Canada / Ontario)                     | Filtered to Ontario only for this analysis                                                                          |
+| `IMMIGRANT`      | Immigration classification of the worker group                                                   | Categorical (character)                            | Includes Born in Canada, Non-landed, and landed immigrant sub-groups; rows containing "Total" dropped               |
+| `TYPE OF WORK`   | Employment classification                                                                        | Categorical (All employees / Full-time / Part-time)| Filtered to "All employees" for EDA; full-time-only is a useful sensitivity filter                                  |
+| `WAGE RATE`      | Descriptor of the wage measure recorded in the file                                              | Categorical — single value: "Median hourly wage"  | Not used analytically; only one value exists in the dataset                                                         |
+| `EDUCATION`      | Highest level of schooling attained by the worker group                                          | Ordered factor (8 levels)                          | Leading whitespace trimmed; ordered from lowest (0–8 years) to highest (Above bachelor's degree); "Total" rows dropped |
+| `AGE GROUP`      | Age cohort of the worker group                                                                   | Categorical (15+, 25+, 25–34, 25–54, 25–64)       | Filtered to "25+" for main analysis to focus on prime working-age adults                                            |
+| `Both sexes`     | Median hourly wage (CAD/hr) for both sexes combined — **primary outcome variable**               | Numeric (CAD/hour)                                 | No missing values in Ontario subset                                                                                  |
+| `Men`            | Median hourly wage (CAD/hr) for men                                                              | Numeric (CAD/hour)                                 | Retained for gender-disaggregated analysis in later sections                                                        |
+| `Women`          | Median hourly wage (CAD/hr) for women                                                            | Numeric (CAD/hour)                                 | Retained for gender-disaggregated analysis in later sections                                                        |
 
-```{r table1-summary-moiz}
-# MOIZ: Table 1 --- summary statistics (mean, median, SD) of wages by education level.
-# wages %>%
-#   group_by(education_level) %>%
-#   summarise(
-#     n = n(),
-#     mean_wage = mean(wage_rate, na.rm = TRUE),
-#     median_wage = median(wage_rate, na.rm = TRUE),
-#     sd_wage = sd(wage_rate, na.rm = TRUE)
-#   ) %>%
-#   knitr::kable(digits = 2, caption = "Table 1: Wage summary statistics by education level")
+
+### Data Cleaning
+
+Rows where `EDUCATION` or `IMMIGRANT` contained the word `"Total"` were removed prior to analysis to prevent double-counting, as these aggregate rows represent summaries across sub-groups already present in the data. The dataset was further filtered to Ontario only, since Canada-level rows would conflate Ontario's labour market with national trends outside this project's scope.
+
+```{r data-clean-moiz, eval=TRUE}
+library(tidyverse)
+
+# Load the raw dataset
+wages_raw <- readr::read_csv(
+  "data.csv",
+  trim_ws        = TRUE,
+  show_col_types = FALSE
+)
+
+wages <- wages_raw %>%
+
+  # Standardize column names to snake_case
+  rename(
+    year             = YEAR,
+    geography        = GEOGRAPHY,
+    immigrant_status = IMMIGRANT,
+    work_type        = `TYPE OF WORK`,
+    wage_type        = `WAGE RATE`,
+    education_level  = EDUCATION,
+    age_group        = `AGE GROUP`,
+    wage_both        = `Both sexes`,
+    wage_men         = Men,
+    wage_women       = Women
+  ) %>%
+
+  # Focus on Ontario only (drop Canada-level aggregate rows)
+  filter(str_trim(geography) == "Ontario") %>%
+
+  # Remove aggregate "Total" rows from education and immigrant status
+  # to avoid double-counting sub-groups already present in the data
+  filter(
+    !str_detect(education_level,  regex("total", ignore_case = TRUE)),
+    !str_detect(immigrant_status, regex("total", ignore_case = TRUE))
+  ) %>%
+
+  # Trim any residual leading/trailing whitespace from all character columns
+  mutate(across(where(is.character), str_trim)) %>%
+
+  # Reorder education_level as an ordered factor from lowest to highest attainment
+  # "Bachelor's degree" and "Above bachelor's degree" are sub-categories of
+  # "University degree"; they are placed at the top of the ordering
+  mutate(
+    education_level = factor(
+      education_level,
+      levels = c(
+        "0 - 8 years",
+        "Some high school",
+        "High school graduate",
+        "Some post-secondary",
+        "Post-secondary certificate or diploma",
+        "University degree",
+        "Bachelor's degree",
+        "Above bachelor's degree"
+      ),
+      ordered = TRUE
+    )
+  ) %>%
+
+  # Filter to age group "25 +" and "All employees" for the main EDA
+  filter(age_group == "25 +", work_type == "All employees")
+
+glimpse(wages)
 ```
 
-```{r graph1-boxplot-moiz, fig.cap="Graph 1: Wage distribution by education level (boxplots)."}
-# MOIZ: Graph 1 --- boxplot of wage by education level (reorder factor levels logically if needed).
-# ggplot(wages, aes(x = education_level, y = wage_rate)) +
-#   geom_boxplot(outlier.alpha = 0.4) +
-#   labs(x = "Education level", y = "Wage (specify: hourly / weekly)") +
-#   theme_minimal() +
-#   theme(axis.text.x = element_text(angle = 35, hjust = 1))
+---
+
+### Exploratory Data Analysis
+
+The table below presents the mean, median, and standard deviation of the median hourly wage (`wage_both`, both sexes) for each education level, pooled across all years and immigrant status categories in the Ontario, age 25+ subset.
+
+```{r table1-summary-moiz, eval=TRUE}
+wages %>%
+  group_by(education_level) %>%
+  summarise(
+    n           = n(),
+    mean_wage   = mean(wage_both, na.rm = TRUE),
+    median_wage = median(wage_both, na.rm = TRUE),
+    sd_wage     = sd(wage_both, na.rm = TRUE),
+    .groups     = "drop"
+  ) %>%
+  knitr::kable(
+    digits    = 2,
+    col.names = c(
+      "Education Level", "N (obs.)",
+      "Mean Hourly Wage ($)", "Median Hourly Wage ($)", "Std. Dev. ($)"
+    ),
+    format = "latex"
+  ) %>%
+  kableExtra::kable_styling(
+    latex_options = c("hold_position", "striped"),
+    full_width    = FALSE,
+    font_size     = 10
+  )
 ```
 
-```{r graph2-line-moiz, fig.cap="Graph 2: Trend in mean wages over time for university degree vs. high school."}
-# MOIZ: Graph 2 --- line graph: mean wage by year for "University degree" vs "High school" (match exact labels in your data).
-# wages_trend <- wages %>%
-#   filter(education_level %in% c("University degree", "High school")) %>%
-#   group_by(year, education_level) %>%
-#   summarise(mean_wage = mean(wage_rate, na.rm = TRUE), .groups = "drop")
-# ggplot(wages_trend, aes(x = year, y = mean_wage, color = education_level)) +
-#   geom_line(linewidth = 1) +
-#   geom_point() +
-#   labs(x = "Year", y = "Mean wage", color = "Education") +
-#   theme_minimal()
+Table 1 reveals a clear positive wage gradient: mean hourly wages increase at each successive level of educational attainment, with university-level workers earning substantially more than those with eight or fewer years of schooling. The standard deviation also rises with education level, indicating greater wage dispersion among the most credentialed workers — a pattern that may reflect the unequal wage returns experienced by immigrants whose foreign credentials are not fully recognized in the Ontario labour market.
+
+
+```{r graph1-boxplot-moiz, eval=TRUE, fig.width=7.5, fig.height=5.5, fig.align='center', out.width='95%'}
+
+ggplot(wages, aes(x = education_level, y = wage_both, fill = education_level)) +
+  geom_boxplot(outlier.alpha = 0.3, outlier.size = 1.2, width = 0.55, alpha = 0.75) +
+  geom_jitter(width = 0.15, alpha = 0.2, size = 0.9, colour = "grey30") +
+  scale_fill_brewer(palette = "Blues", direction = 1) +
+  scale_y_continuous(labels = scales::dollar_format(prefix = "$", suffix = "/hr")) +
+  labs(
+    title    = "Distribution of Median Hourly Wages by Education Level",
+    subtitle = "Ontario, age 25+, all employees — 2006 to 2024",
+    x        = "Education Level",
+    y        = "Median Hourly Wage (CAD/hr)",
+    caption = paste(
+      "Source: Ontario Ministry of Labour, Immigration, Training and Skills Development.",
+      "Aggregate 'Total' rows and Canada-level observations excluded. Wage measure: median hourly, both sexes.",
+      sep = "\n"
+    )) +
+  theme_minimal(base_size = 11) +
+  theme(
+    axis.title.y = element_text(margin = margin(r = 10)),
+    axis.text.x     = element_text(angle = 38, hjust = 1, size = 8.5),
+    legend.position = "none",
+    plot.title      = element_text(face = "bold", hjust=0.5),
+    plot.subtitle   = element_text(colour = "grey40", size = 9, hjust=0.5),
+    plot.caption    = element_text(colour = "grey50", size = 8, hjust=0.5)
+  )
 ```
+
+**Interpretation.** Graph 1 illustrates the full distribution of median hourly wages across the eight education categories in the Ontario dataset. Several features are immediately evident. First, there is a consistent upward shift in both the median and the overall range of wages as educational attainment increases, consistent with the predictions of human capital theory, workers with zero to eight years of schooling are clustered at the lower end of the wage distribution, while university-level categories display both the highest median wages and the widest interquartile ranges. This increased spread at higher credentials is notable: rather than a uniformly elevated wage floor for the most credentialed workers, there appears to be substantial heterogeneity. In the context of our research question, this dispersion is likely driven in part by variation in immigrant status within each education group, immigrants, particularly recent arrivals, may hold university credentials that are not fully rewarded by Ontario employers, suppressing their wages relative to Canadian-born workers with equivalent education. This is the glass ceiling hypothesis in its most direct form, and the formal tests in the inference section will examine it rigorously.
+
+
+```{r graph2-line-moiz, eval=TRUE, out.width='95%'}
+
+wages_trend <- wages %>%
+  filter(education_level %in% c("University degree", "High school graduate")) %>%
+  group_by(year, education_level) %>%
+  summarise(mean_wage = mean(wage_both, na.rm = TRUE), .groups = "drop")
+
+ggplot(wages_trend, aes(x = year, y = mean_wage,
+                        colour = education_level,
+                        group  = education_level)) +
+  geom_line(linewidth = 1.15) +
+  geom_point(size = 2.3, alpha = 0.9) +
+  scale_colour_manual(
+    values = c(
+      "University degree"    = "#1d6fa4",
+      "High school graduate" = "#e07b00"
+    ),
+    name = "Education Level"
+  ) +
+  scale_y_continuous(labels = scales::dollar_format(prefix = "$", suffix = "/hr")) +
+  scale_x_continuous(breaks = scales::pretty_breaks(n = 9)) +
+  labs(
+    title    = "Wage Trends Over Time: University Degree vs. High School Graduate",
+    subtitle = "Mean of median hourly wages (CAD/hr) — Ontario, age 25+, all employees",
+    x        = "Year",
+    y        = "Mean of Median Hourly Wage (CAD/hr)",
+    caption  = "Source: Ontario Ministry of Labour, Immigration, Training and Skills Development.\nWage measure: median hourly, both sexes. Averaged across all immigrant status sub-groups."
+  ) +
+  theme_minimal(base_size = 11) +
+  theme(
+    axis.title.y = element_text(margin = margin(r = 10)),
+    plot.title      = element_text(face = "bold", hjust=0.5),
+    plot.subtitle   = element_text(colour = "grey40", size = 9, hjust=0.5),
+    plot.caption    = element_text(colour = "grey50", size = 8, hjust=0.5),
+    legend.position = "bottom"
+  )
+```
+
+**Interpretation.** Graph 2 tracks the trajectory of median hourly wages for two anchor education groups, university degree holders and high school graduates, across the full 2006–2024 period in Ontario. Both groups show a general upward trend in nominal wages, consistent with broader Ontario labour market growth and inflationary pressures. However, the gap between the two lines does not remain constant: the separation widens in more recent years, indicating that the wage premium associated with a university education has grown over time. This trend is significant for our research question because it establishes the escalating scale of the credential premium that Ontario workers, including immigrants, must access. If immigrant workers with university degrees are not capturing this premium at the same rate as Canadian-born workers, then the glass ceiling represents not just a static wage gap but a compounding disadvantage that has grown over nearly two decades. Taken together, Graphs 1 and 2 establish that educational attainment is a powerful predictor of wages in Ontario in the aggregate, making any systematic deviation from this pattern for immigrants a meaningful indicator of structural inequity, a question the inference and modelling sections will address directly.
 
 \newpage
 
