@@ -62,7 +62,7 @@ library(knitr)
 library(kableExtra)  # optional: nicer tables in PDF
 ```
 
-```{r data-load-moiz}
+```{r data-load-moiz, eval=TRUE}
 # MOIZ: readr::read_csv() is preferred over read.csv(): faster, tibbles, consistent parsing, progress bar.
 # trim_ws = TRUE helps columns like WAGE RATE / EDUCATION that have leading spaces in this file.
 # show_col_types = FALSE keeps knit/PDF output shorter (omit if you want to see column guesses).
@@ -142,16 +142,26 @@ wages <- wages_raw
 
 ### Hypothesis testing
 
-**LABEL (remove before submission):** ~1 page. State **null** and **alternative** hypotheses clearly. Run either a **two-sample t-test** (e.g., men vs. women, or born in Canada vs. immigrants) or **ANOVA** across education levels. Report the **test statistic**, **df** (if applicable), and **p-value**, and interpret in plain language tied to Ontario wages.
+We are testing the hypothesis that the mean wage is different for different education levels.
+Null hypothesis: The mean wage is the same for all education levels.
+Alternative hypothesis: The mean wage is different for at least one education level.
 
-*(Replace with Asad's write-up.)*
+```{r hypothesis-tests-asad, eval=TRUE}
+wages_without_total <- wages %>% filter(EDUCATION != "Total, all education levels")
 
-```{r hypothesis-tests-asad}
-# ASAD: Example skeletons---choose what matches your research question and variable types.
-# t.test(wage_rate ~ group_var, data = wages)
-# aov(wage_rate ~ education_level, data = wages) |> summary()
-# For ANOVA assumptions / post-hoc: consider mentioning checks briefly in text.
+# Summaries use the numeric wage columns (WAGE RATE is only the label "Median hourly wage").
+wages_by_education <- wages_without_total %>%
+  group_by(EDUCATION) %>%
+  summarise(mean_wage = mean(`Both sexes`, na.rm = TRUE), .groups = "drop")
+kable(wages_by_education, caption = "Mean of `Both sexes` (median hourly wage) by education level")
+
+# t-test needs exactly TWO groups on the right-hand side — filter to two education levels, then test on row-level values.
+two_edu <- wages_without_total %>%
+  filter(EDUCATION %in% c("University degree", "High school graduate"))
+t.test(`Both sexes` ~ EDUCATION, data = two_edu)
+
 ```
+Since the p-value for at least one education level is less than 0.05(incredibly smaller in fact), we reject the null hypothesis.
 
 ### Confidence intervals
 
