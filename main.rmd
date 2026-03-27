@@ -293,7 +293,7 @@ two_edu <- wages_without_total %>%
 t.test(`Both sexes` ~ EDUCATION, data = two_edu)
 
 ```
-Since the p-value for at least one education level is less than 0.05(incredibly smaller in fact), we reject the null hypothesis.
+Since the p-value for at least one education level is less than 0.05(incredibly smaller in fact), we reject the null hypothesis as there is a significant difference in the mean wage for high school graduate and university degree.
 
 ### Confidence intervals
 
