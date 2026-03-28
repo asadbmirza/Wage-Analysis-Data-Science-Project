@@ -29,6 +29,51 @@ knitr::opts_chunk$set(
   fig.align = "center",
   eval = FALSE
 )
+
+ttest_to_table <- function(test_obj, group_1, group_2, diff_label) {
+  tibble::tibble(
+    comparison = paste(group_1, "vs", group_2),
+    mean_group_1 = unname(test_obj$estimate[[1]]),
+    mean_group_2 = unname(test_obj$estimate[[2]]),
+    mean_difference = unname(diff(test_obj$estimate)),
+    t_statistic = unname(test_obj$statistic),
+    df = unname(test_obj$parameter),
+    p_value = test_obj$p.value,
+    ci_lower = test_obj$conf.int[1],
+    ci_upper = test_obj$conf.int[2],
+    difference_definition = diff_label
+  )
+}
+
+ttest_to_long_table <- function(test_obj, group_1, group_2, diff_label) {
+  summary_tbl <- ttest_to_table(test_obj, group_1, group_2, diff_label)
+  tibble::tibble(
+    Metric = c(
+      "Comparison",
+      paste("Mean:", group_1),
+      paste("Mean:", group_2),
+      "Mean difference",
+      "Difference definition",
+      "t-statistic",
+      "Degrees of freedom",
+      "p-value",
+      "95% CI lower",
+      "95% CI upper"
+    ),
+    Value = c(
+      summary_tbl$comparison,
+      sprintf("%.3f", summary_tbl$mean_group_1),
+      sprintf("%.3f", summary_tbl$mean_group_2),
+      sprintf("%.3f", summary_tbl$mean_difference),
+      summary_tbl$difference_definition,
+      sprintf("%.3f", summary_tbl$t_statistic),
+      sprintf("%.3f", summary_tbl$df),
+      format(summary_tbl$p_value, digits = 3, scientific = TRUE),
+      sprintf("%.3f", summary_tbl$ci_lower),
+      sprintf("%.3f", summary_tbl$ci_upper)
+    )
+  )
+}
 ```
 
 ## Project overview
@@ -270,42 +315,93 @@ ggplot(wages_trend, aes(x = year, y = mean_wage,
 
 ## LABEL: Student 2 (Asad) --- The Inference Specialist
 
-### Target: approximately pages 2.5--5 (tests, CIs, bootstrap)
-
 ### Hypothesis testing
 
-We are testing the hypothesis that the mean wage is different for different education levels.
-Null hypothesis: The mean wage is the same for all education levels.
-Alternative hypothesis: The mean wage is different for at least one education level.
+We are testing whether mean wages differ by education level. For inference, we use a two-sample t-test on "University degree" vs "High school graduate" to estimate both significance and the 95% confidence interval for the mean difference.
+Null hypothesis: The mean wage is the same for these two education groups.
+Alternative hypothesis: The mean wage is different between these two education groups.
 
-```{r hypothesis-tests-asad, eval=TRUE}
-wages_without_total <- wages %>% filter(EDUCATION != "Total, all education levels")
+```{r hypothesis-tests-education-asad, eval=TRUE}
+wages_without_total <- wages %>% filter(education_level != "Total, all education levels")
 
 # Summaries use the numeric wage columns (WAGE RATE is only the label "Median hourly wage").
 wages_by_education <- wages_without_total %>%
-  group_by(EDUCATION) %>%
-  summarise(mean_wage = mean(`Both sexes`, na.rm = TRUE), .groups = "drop")
-kable(wages_by_education, caption = "Mean of `Both sexes` (median hourly wage) by education level")
+  group_by(education_level) %>%
+  summarise(mean_wage = mean(wage_both, na.rm = TRUE), .groups = "drop")
+kable(wages_by_education, caption = "Mean of wage_both (median hourly wage) by education level")
 
 # t-test needs exactly TWO groups on the right-hand side — filter to two education levels, then test on row-level values.
 two_edu <- wages_without_total %>%
-  filter(EDUCATION %in% c("University degree", "High school graduate"))
-t.test(`Both sexes` ~ EDUCATION, data = two_edu)
+  filter(education_level %in% c("University degree", "High school graduate"))
+edu_test <- t.test(wage_both ~ education_level, data = two_edu)
+kable(
+  ttest_to_long_table(
+    edu_test,
+    "High school graduate",
+    "University degree",
+    "High school graduate - University degree"
+  ),
+  caption = "Welch two-sample t-test for high school graduates vs university degree holders"
+)
 
 ```
-Since the p-value for at least one education level is less than 0.05(incredibly smaller in fact), we reject the null hypothesis as there is a significant difference in the mean wage for high school graduate and university degree.
+The summary table compares all education categories, while the t-test focuses on "University degree" versus "High school graduate." The 95% confidence interval for the mean difference (High school - University) is approximately [-13.07, -10.42], which does not include 0. Therefore, we reject the null hypothesis and conclude with at least 95% confidence that university-degree workers have a higher mean wage than high-school graduates. This directly supports the research question that education level is associated with wage differences.
 
-### Confidence intervals
+Next, we test whether mean wages differ by immigrant status using a two-sample t-test for "Born in Canada" versus "Established immigrants, 10+ years," again using the test to obtain a 95% confidence interval for the mean difference.
+Null hypothesis: The mean wage is the same for these two immigrant-status groups.
+Alternative hypothesis: The mean wage is different between these two immigrant-status groups.
+```{r hypothesis-tests-immigrant-asad, eval=TRUE}
+wages_without_total <- wages %>% filter(immigrant_status != "Total, all immigrant status")
 
-**LABEL (remove before submission):** ~0.5 page. **95% confidence intervals** for the mean wage in the **highest** and **lowest** education groups (define which categories those are). Explain what "95% confident" means **without** saying "the probability the true mean is in the interval is 95%" in a misleading way.
+# Summaries use the numeric wage columns (WAGE RATE is only the label "Median hourly wage").
+wages_by_immigrant_status <- wages_without_total %>%
+  group_by(immigrant_status) %>%
+  summarise(mean_wage = mean(wage_both, na.rm = TRUE), .groups = "drop")
+kable(wages_by_immigrant_status, caption = "Mean of wage_both (median hourly wage) by immigrant status")
 
-```{r ci-asad}
-# ASAD: 95% CIs for mean wage in two education groups (example pattern).
-# high <- wages %>% filter(education_level == "University degree")
-# low  <- wages %>% filter(education_level == "High school")
-# t.test(high$wage_rate)$conf.int
-# t.test(low$wage_rate)$conf.int
+two_immigrant_status <- wages_without_total %>%
+  filter(immigrant_status %in% c("Born in Canada", "Established immigrants, 10+ years"))
+immigrant_test <- t.test(wage_both ~ immigrant_status, data = two_immigrant_status)
+kable(
+  ttest_to_long_table(
+    immigrant_test,
+    "Born in Canada",
+    "Established immigrants, 10+ years",
+    "Born in Canada - Established immigrants, 10+ years"
+  ),
+  caption = "Welch two-sample t-test for Canadian-born vs established immigrants"
+)
 ```
+
+The summary table shows all immigrant-status categories, and the t-test isolates "Born in Canada" versus "Established immigrants, 10+ years." The 95% confidence interval for the mean difference (Born in Canada - Established immigrants) is approximately [0.97, 4.82], which does not include 0. Therefore, we reject the null hypothesis and conclude with at least 95% confidence that Canadian-born workers in this comparison have a higher mean wage. This supports the second research question by showing a wage gap by immigrant status(the highest wage average immigrant status in fact).
+
+Finally, we test whether immigrant-status wage differences remain within the university-educated subgroup using a two-sample t-test for "Born in Canada" versus "Established immigrants, 10+ years," and we use its 95% confidence interval for the mean difference.
+Null hypothesis: The mean wage is the same for these two immigrant-status groups among university-educated workers.
+Alternative hypothesis: The mean wage is different between these two immigrant-status groups among university-educated workers.
+```{r hypothesis-tests-university-immigrant-asad, eval=TRUE}
+wages_without_total <- wages %>% filter(education_level == "University degree")
+wages_by_immigrant_status <- wages_without_total %>%
+  group_by(immigrant_status) %>%
+  summarise(mean_wage = mean(wage_both, na.rm = TRUE), .groups = "drop")
+kable(wages_by_immigrant_status, caption = "Mean of wage_both (median hourly wage) by immigrant status")
+
+two_immigrant_status <- wages_without_total %>%
+  filter(immigrant_status %in% c("Born in Canada", "Established immigrants, 10+ years"))
+university_immigrant_test <- t.test(wage_both ~ immigrant_status, data = two_immigrant_status)
+kable(
+  ttest_to_long_table(
+    university_immigrant_test,
+    "Born in Canada",
+    "Established immigrants, 10+ years",
+    "Born in Canada - Established immigrants, 10+ years"
+  ),
+  caption = "Welch two-sample t-test within university graduates"
+)
+```
+
+This final t-test focuses only on university-educated respondents. The 95% confidence interval for the mean difference (Born in Canada - Established immigrants) is approximately [1.88, 7.13], which does not include 0. Therefore, we reject the null hypothesis and conclude with at least 95% confidence that, even among university graduates, Canadian-born workers in this comparison have a higher mean wage. This addresses the third research question and supports the interpretation that the gap is not only an education effect.
+
+Taken together, these three t-tests show that wages differ significantly by education level, by immigrant status, and within the university-educated subgroup by immigrant status. Because none of the estimated confidence intervals include 0, each comparison provides evidence of a meaningful difference in mean wages. Overall, this strengthens the report's central conclusion: education is associated with higher wages, but the returns to education do not appear to be distributed equally across immigrant groups, which is consistent with the glass-ceiling framing in Ontario's labour market.
 
 ### Bootstrapping
 
@@ -365,7 +461,7 @@ Since the p-value for at least one education level is less than 0.05(incredibly 
 
 **LABEL (remove before submission):** Ensure this lists the final, clean versions of everyone's chunks (knitr will pull in the labeled chunks below). If you rename chunks, update `ref.label` accordingly.
 
-```{r appendix-all-code, ref.label=c("libraries", "data-load-moiz", "table1-summary-moiz", "graph1-boxplot-moiz", "graph2-line-moiz", "hypothesis-tests-asad", "ci-asad", "bootstrap-asad", "regression-ishan", "cross-validation-ishan"), echo=TRUE, eval=FALSE}
+```{r appendix-all-code, ref.label=c("libraries", "data-load-moiz", "table1-summary-moiz", "graph1-boxplot-moiz", "graph2-line-moiz", "hypothesis-tests-education-asad", "hypothesis-tests-immigrant-asad", "hypothesis-tests-university-immigrant-asad", "ci-asad", "bootstrap-asad", "regression-ishan", "cross-validation-ishan"), echo=TRUE, eval=FALSE}
 ```
 
 ## References
