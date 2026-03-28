@@ -405,16 +405,147 @@ Taken together, these three t-tests show that wages differ significantly by educ
 
 ### Bootstrapping
 
-**LABEL (remove before submission):** ~1 page. Use the **`boot`** package with **B = 1000** (or similar) resamples. Plot a **histogram** of the bootstrap distribution (e.g., bootstrap mean difference or mean wage). Explain why bootstrapping helps when wages may be **skewed** or **non-normal**.
+Bootstrapping gives us a second way to assess uncertainty in the estimated wage gaps. Unlike the t-test, which relies on distributional assumptions, bootstrap resampling repeatedly samples from the observed data with replacement and builds an empirical distribution of the mean difference. This is especially useful here because wage data can be skewed and may not follow a perfectly normal distribution.
 
-```{r bootstrap-asad, fig.cap="Histogram of bootstrap replicates (customize title after you choose the statistic)."}
-# ASAD: Define a statistic function for boot::boot(); R = 1000.
-# library(boot)
-# stat_mean <- function(x, i) mean(x[i], na.rm = TRUE)
-# boot_out <- boot::boot(wages$wage_rate, statistic = stat_mean, R = 1000)
-# hist(boot_out$t, main = "Bootstrap distribution of mean wage", xlab = "Replicate mean")
-# boot.ci(boot_out, type = c("perc", "bca"))
+In this section, we bootstrap the same three comparisons used in the hypothesis tests: university graduates versus high school graduates, Canadian-born workers versus established immigrants, and Canadian-born versus established immigrants within the university-educated subgroup. For each comparison, we use 1000 bootstrap resamples and report the 95% bootstrap confidence interval for the difference in mean wages.
+
+```{r bootstrap-asad, fig.cap="Bootstrap distributions for the mean wage differences across the three main comparisons.", eval=TRUE, fig.width=7.5, fig.height=9, fig.align='center', out.width='95%'}
+set.seed(123)
+
+bootstrap_mean_diff <- function(group_a, group_b, reps = 1000) {
+  group_a <- group_a[!is.na(group_a)]
+  group_b <- group_b[!is.na(group_b)]
+  replicate(reps, {
+    mean(sample(group_a, size = length(group_a), replace = TRUE)) -
+      mean(sample(group_b, size = length(group_b), replace = TRUE))
+  })
+}
+
+university <- wages %>% filter(education_level == "University degree")
+highschool <- wages %>% filter(education_level == "High school graduate")
+education_boot <- bootstrap_mean_diff(university$wage_both, highschool$wage_both)
+
+born_canada <- wages %>% filter(immigrant_status == "Born in Canada")
+established_immigrants <- wages %>% filter(immigrant_status == "Established immigrants, 10+ years")
+immigrant_boot <- bootstrap_mean_diff(born_canada$wage_both, established_immigrants$wage_both)
+
+university_only <- wages %>% filter(education_level == "University degree")
+born_canada_uni <- university_only %>% filter(immigrant_status == "Born in Canada")
+established_immigrants_uni <- university_only %>% filter(immigrant_status == "Established immigrants, 10+ years")
+university_immigrant_boot <- bootstrap_mean_diff(
+  born_canada_uni$wage_both,
+  established_immigrants_uni$wage_both
+)
+
+bootstrap_plot_data <- tibble(
+  mean_difference = c(
+    education_boot,
+    immigrant_boot,
+    university_immigrant_boot
+  ),
+  comparison = factor(
+    c(
+      rep("University degree - High school graduate", length(education_boot)),
+      rep("Born in Canada - Established immigrants, 10+ years", length(immigrant_boot)),
+      rep("Born in Canada - Established immigrants, 10+ years\n(University only)", length(university_immigrant_boot))
+    ),
+    levels = c(
+      "University degree - High school graduate",
+      "Born in Canada - Established immigrants, 10+ years",
+      "Born in Canada - Established immigrants, 10+ years\n(University only)"
+    )
+  )
+)
+
+bootstrap_ci_lines <- tibble(
+  comparison = factor(
+    c(
+      "University degree - High school graduate",
+      "University degree - High school graduate",
+      "Born in Canada - Established immigrants, 10+ years",
+      "Born in Canada - Established immigrants, 10+ years",
+      "Born in Canada - Established immigrants, 10+ years\n(University only)",
+      "Born in Canada - Established immigrants, 10+ years\n(University only)"
+    ),
+    levels = levels(bootstrap_plot_data$comparison)
+  ),
+  xintercept = c(
+    quantile(education_boot, probs = c(0.025, 0.975)),
+    quantile(immigrant_boot, probs = c(0.025, 0.975)),
+    quantile(university_immigrant_boot, probs = c(0.025, 0.975))
+  )
+)
+
+ggplot(bootstrap_plot_data, aes(x = mean_difference)) +
+  geom_histogram(bins = 30, fill = "#8fb9a8", color = "white") +
+  geom_vline(
+    data = bootstrap_ci_lines,
+    aes(xintercept = xintercept),
+    color = "#c0392b",
+    linewidth = 0.8,
+    linetype = "dashed"
+  ) +
+  facet_wrap(~ comparison, ncol = 1, scales = "free_y") +
+  labs(
+    title = "Bootstrap Distributions of Mean Wage Differences",
+    x = "Bootstrap mean difference",
+    y = "Count"
+  ) +
+  theme_minimal(base_size = 11) +
+  theme(
+    strip.text = element_text(face = "bold"),
+    plot.title = element_text(face = "bold", hjust = 0.5)
+  )
+
+bootstrap_summary <- tibble(
+  comparison = c(
+    "University degree - High school graduate",
+    "Born in Canada - Established immigrants, 10+ years",
+    "Born in Canada - Established immigrants, 10+ years (University only)"
+  ),
+  bootstrap_mean_difference = c(
+    mean(education_boot),
+    mean(immigrant_boot),
+    mean(university_immigrant_boot)
+  ),
+  ci_lower = c(
+    quantile(education_boot, 0.025),
+    quantile(immigrant_boot, 0.025),
+    quantile(university_immigrant_boot, 0.025)
+  ),
+  ci_upper = c(
+    quantile(education_boot, 0.975),
+    quantile(immigrant_boot, 0.975),
+    quantile(university_immigrant_boot, 0.975)
+  )
+)
+
+bootstrap_summary_long <- tibble(
+  Comparison = rep(bootstrap_summary$comparison, each = 3),
+  Metric = rep(c("Bootstrap mean difference", "95% CI lower", "95% CI upper"), times = nrow(bootstrap_summary)),
+  Value = c(
+    bootstrap_summary$bootstrap_mean_difference[1],
+    bootstrap_summary$ci_lower[1],
+    bootstrap_summary$ci_upper[1],
+    bootstrap_summary$bootstrap_mean_difference[2],
+    bootstrap_summary$ci_lower[2],
+    bootstrap_summary$ci_upper[2],
+    bootstrap_summary$bootstrap_mean_difference[3],
+    bootstrap_summary$ci_lower[3],
+    bootstrap_summary$ci_upper[3]
+  )
+)
+
+kable(
+  bootstrap_summary_long,
+  digits = 3,
+  caption = "Bootstrap 95% confidence intervals for mean wage differences"
+)
 ```
+
+The bootstrap results reinforce the conclusions from the t-tests. If the 95% bootstrap confidence interval for a mean difference does not include 0, that indicates the estimated wage gap remains consistently positive or negative across repeated resamples of the data. For the education comparison, this supports the conclusion that university graduates earn more on average than high school graduates. For the two immigrant-status comparisons, bootstrap intervals that remain above 0 support the conclusion that Canadian-born workers earn more on average than established immigrants, both overall and within the university-educated subgroup.
+
+Overall, the bootstrap analysis strengthens the inference section by showing that the main findings are not driven only by the assumptions of the t-test. Because the resampled confidence intervals tell the same story as the analytical confidence intervals, we have stronger evidence that the observed wage gaps are real and consistent with the report's glass-ceiling interpretation.
 
 \newpage
 
