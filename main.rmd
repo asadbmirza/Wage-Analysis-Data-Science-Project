@@ -543,42 +543,159 @@ Overall, the bootstrap analysis strengthens the inference section by showing tha
 
 \newpage
 
-## LABEL: Student 3 (Ishan) --- The Model and Conclusion
-
-### Target: approximately pages 5--7.5+ (regression, CV, summary, appendix)
+## The Model and Conclusion
 
 ### Regression analysis
+```{r regression-ishan, eval=TRUE}
+# 1. Prepare data with explicit reference levels
+wages_model <- wages %>%
+  mutate(
+    education_level = relevel(factor(as.character(education_level), ordered = FALSE), 
+                              ref = "High school graduate"),
+    immigrant_status = relevel(factor(immigrant_status), 
+                               ref = "Born in Canada")
+  ) %>%
+  filter(
+    !is.na(wage_both),
+    !is.na(education_level),
+    !is.na(immigrant_status)
+  )
 
-**LABEL (remove before submission):** ~1.5 pages. Fit **multiple linear regression**, e.g. `lm(wage ~ education + immigration_status)` (add controls if your dictionary includes them). Present a **regression table**. **Interpret coefficients**: e.g., if a level "University degree" has a coefficient of 500, state that it is associated with **$500 higher weekly wages holding immigration status constant** (only if that matches your outcome scale---adjust wording to your units).
+wages_model <- wages_model %>%
+  mutate(year_centered = year - 2006)
 
-```{r regression-ishan}
-# ISHAN: Use factors with a clear reference level; check linear model assumptions in text or brief diagnostics.
-# fit <- lm(wage_rate ~ education_level + immigration_status, data = wages)
-# summary(fit)
-# Table: consider broom::tidy(fit), stargazer, gtsummary::tbl_regression, or modelsummary::modelsummary(list(fit))
+fit_mlr <- lm(wage_both ~ education_level + immigrant_status + year_centered, data = wages_model)
+
+# 3. Extract and format results
+coef_mat <- summary(fit_mlr)$coefficients
+ci_mat <- confint(fit_mlr)
+
+reg_table <- tibble::tibble(
+  term = rownames(coef_mat),
+  estimate = coef_mat[, 1],
+  std_error = coef_mat[, 2],
+  p_value = coef_mat[, 4],
+  ci_lower = ci_mat[, 1],
+  ci_upper = ci_mat[, 2]
+) %>%
+  mutate(across(where(is.numeric), ~ round(.x, 3)))
+
+reg_table_clean <- reg_table %>%
+  mutate(term = stringr::str_remove_all(term, "education_level|immigrant_status")) %>%
+  mutate(term = ifelse(term == "(Intercept)", "Baseline (High School / Born in Canada)", term))
+
+important_terms <- c(
+  "Baseline (High School / Born in Canada)",
+  "0 - 8 years",
+  "Some post-secondary",
+  "Bachelor's degree",
+  "University degree",
+  "Above bachelor's degree",
+  "Established immigrants, 10+ years",
+  "Recent immigrants, 5+ to 10 years",
+  "Very recent immigrants, 5 years or less",
+  "year_centered"
+)
+
+reg_table_compact <- reg_table_clean %>%
+  filter(term %in% important_terms) %>%
+  mutate(
+    term = dplyr::case_when(
+      term == "Baseline (High School / Born in Canada)" ~ "Reference: High school graduate + Born in Canada (year 2006)",
+      term %in% c("0 - 8 years", "Some post-secondary", "Bachelor's degree", "University degree", "Above bachelor's degree") ~
+        paste0("Education: ", term, " (vs High school graduate)"),
+      term %in% c("Established immigrants, 10+ years", "Recent immigrants, 5+ to 10 years", "Very recent immigrants, 5 years or less") ~
+        paste0("Immigrant status: ", term, " (vs Born in Canada)"),
+      term == "year_centered" ~ "Year centered at 2006 (per +1 year)",
+      TRUE ~ term
+    ),
+    p_value = ifelse(p_value < 0.001, "<0.001", sprintf("%.3f", p_value))
+  ) %>%
+  transmute(
+    Variable = term,
+    Estimate = round(estimate, 3),
+    `p-value` = p_value
+  )
+
+knitr::kable(
+  reg_table_compact,
+  booktabs = TRUE,
+  caption = "Key Regression Coefficients for Median Hourly Wage (CAD/hr)"
+)
 ```
+**Interpretation.** The multiple linear regression shows that education is strongly associated with higher wages, but immigrant-status wage gaps persist after controls. The baseline group (high school graduates born in Canada in 2006) has a predicted wage of 18.595 CAD/hr. Relative to high school graduates, university-level credentials are linked to higher wages (University degree +11.745, Bachelor’s +9.196, Above bachelor’s +16.303 CAD/hr; all p < 0.001), while lower schooling categories are associated with lower wages. The only education category without a clear difference is some post-secondary (-0.147 CAD/hr, p = 0.744).
+
+Immigrant-status coefficients are negative relative to Canadian-born workers, even after controlling for education and year (e.g., established immigrants -2.895, recent immigrants 5+ to 10 years -7.954, very recent immigrants -10.259 CAD/hr; all p < 0.001). The positive year effect (+0.508 CAD/hr, p < 0.001) indicates general wage growth over time. Overall, the model supports the main conclusion: education is rewarded, but returns are not equitably distributed across immigrant groups, consistent with the glass-ceiling framing.
 
 ### Cross-validation
+```{r cross-validation-ishan, eval=TRUE}
+# 4-fold cross-validation
+set.seed(123)
 
-**LABEL (remove before submission):** ~0.5 page. **Train/test split**; report **RMSE** (or RMSE on a held-out set) so readers see **prediction error**, not only in-sample fit.
+d <- wages %>%
+  mutate(
+    education_level = relevel(factor(as.character(education_level), ordered = FALSE),
+      ref = "High school graduate"
+    ),
+    immigrant_status = relevel(factor(immigrant_status), ref = "Born in Canada"),
+    year_centered = year - 2006
+  ) %>%
+  filter(!is.na(wage_both), !is.na(education_level), 
+         !is.na(immigrant_status), !is.na(year_centered))
 
-```{r cross-validation-ishan}
-# ISHAN: Example: 80/20 split; RMSE on test set.
-# set.seed(123)
-# n <- nrow(wages)
-# train_idx <- sample.int(n, size = floor(0.8 * n))
-# train <- wages[train_idx, ]
-# test  <- wages[-train_idx, ]
-# fit_train <- lm(wage_rate ~ education_level + immigration_status, data = train)
-# pred <- predict(fit_train, newdata = test)
-# sqrt(mean((test$wage_rate - pred)^2, na.rm = TRUE))
+k <- 4
+d <- d %>% mutate(group_ind = sample(1:k, size = nrow(d), replace = TRUE))
+mse_vec <- numeric(k)
+
+for (i in 1:k) {
+  d.train <- d %>% filter(group_ind != i)
+  d.test <- d %>% filter(group_ind == i)
+  lm.mod <- lm(wage_both ~ education_level + immigrant_status + year_centered, data = d.train)
+  y_hat <- predict(lm.mod, newdata = d.test)
+  mse_vec[i] <- mean((d.test$wage_both - y_hat)^2, na.rm = TRUE)
+}
+
+# --- TABLE 1: Detailed Fold Results ---
+cv_results <- tibble::tibble(
+  Fold = paste0("Fold ", 1:k),
+  `MSE ((CAD/hr)^2)` = round(mse_vec, 3)
+)
+
+knitr::kable(
+  cv_results, 
+  booktabs = TRUE, 
+  caption = "4-Fold Cross-Validation: Mean Squared Error by Fold",
+  escape = FALSE # Allows the superscript in the header to render correctly
+) %>%
+  kableExtra::kable_styling(latex_options = "hold_position")
+
+# --- TABLE 2: Summary Metrics ---
+overall_mse <- mean(mse_vec)
+overall_rmse <- sqrt(overall_mse)
+
+summary_metrics <- tibble::tibble(
+  Metric = c("Average MSE", "Average RMSE"),
+  Unit = c("(CAD/hr)^2", "CAD/hr"),
+  Value = round(c(overall_mse, overall_rmse), 3)
+)
+
+knitr::kable(
+  summary_metrics, 
+  booktabs = TRUE, 
+  caption = "Overall Model Predictive Performance",
+  col.names = c("Metric", "Unit", "Value")
+) %>%
+  kableExtra::kable_styling(latex_options = "hold_position")
 ```
+**Interpretation.** We evaluated model performance using 4-fold cross-validation. In each fold, the model was trained on 3 parts of the data and tested on the remaining part, then MSE was computed on the test fold. Fold MSE values ranged from 9.105 to 14.291, with an average MSE of 11.649. The corresponding average RMSE is 3.413 CAD/hr, meaning predictions are typically off by about $3.4 per hour on unseen data. Overall, the model shows moderate and fairly stable predictive performance across folds.
 
 ### Summary and conclusion
 
-**LABEL (remove before submission):** ~0.5 page. Tie Moiz's EDA, Asad's inference, and your model together: **does Ontario's data suggest a fair return to education**, especially for immigrants? Link back to the **glass ceiling** framing and policy relevance.
+Overall, the evidence indicates that education is strongly associated with higher wages in Ontario, but these returns are not equally distributed across immigrant groups. Exploratory analysis shows a clear wage gradient by education level and a widening education-related wage gap over time. Inference results and bootstrap confidence intervals consistently show significant differences in wages by both education and immigrant status, including within the university-educated subgroup.
 
-*(Replace with Ishan's synthesis.)*
+The regression model confirms that higher education categories are associated with higher hourly wages after controlling for time, while several immigrant-status groups remain at a wage disadvantage relative to Canadian-born workers. Cross-validation results also suggest moderate and stable out-of-sample predictive performance, supporting the reliability of the model findings beyond the training sample.
+
+Taken together, these results support the glass-ceiling interpretation: education does improve earnings on average, but comparable credentials do not translate into equal wage outcomes across groups. From a policy perspective, this suggests the need for stronger credential recognition, improved newcomer labor-market integration, and employer-side equity measures to ensure fairer wage returns to education in Ontario.
 
 \newpage
 
