@@ -90,7 +90,7 @@ This project examines whether **education** predicts **wages** in a similar way 
 # Shared packages;
 library(tidyverse)
 library(knitr)
-library(kableExtra)  # optional: nicer tables in PDF
+library(kableExtra) # optional: nicer tables in PDF
 ```
 
 ```{r data-load-moiz, eval=TRUE}
@@ -152,7 +152,6 @@ wages_raw <- readr::read_csv(
 )
 
 wages <- wages_raw %>%
-
   # Standardize column names to snake_case
   rename(
     year             = YEAR,
@@ -166,20 +165,16 @@ wages <- wages_raw %>%
     wage_men         = Men,
     wage_women       = Women
   ) %>%
-
   # Focus on Ontario only (drop Canada-level aggregate rows)
   filter(str_trim(geography) == "Ontario") %>%
-
   # Remove aggregate "Total" rows from education and immigrant status
   # to avoid double-counting sub-groups already present in the data
   filter(
-    !str_detect(education_level,  regex("total", ignore_case = TRUE)),
+    !str_detect(education_level, regex("total", ignore_case = TRUE)),
     !str_detect(immigrant_status, regex("total", ignore_case = TRUE))
   ) %>%
-
   # Trim any residual leading/trailing whitespace from all character columns
   mutate(across(where(is.character), str_trim)) %>%
-
   # Reorder education_level as an ordered factor from lowest to highest attainment
   # "Bachelor's degree" and "Above bachelor's degree" are sub-categories of
   # "University degree"; they are placed at the top of the ordering
@@ -199,7 +194,6 @@ wages <- wages_raw %>%
       ordered = TRUE
     )
   ) %>%
-
   # Filter to age group "25 +" and "All employees" for the main EDA
   filter(age_group == "25 +", work_type == "All employees")
 
@@ -223,7 +217,7 @@ wages %>%
     .groups     = "drop"
   ) %>%
   knitr::kable(
-    digits    = 2,
+    digits = 2,
     col.names = c(
       "Education Level", "N (obs.)",
       "Mean Hourly Wage ($)", "Median Hourly Wage ($)", "Std. Dev. ($)"
@@ -241,30 +235,30 @@ Table 1 reveals a clear positive wage gradient: mean hourly wages increase at ea
 
 
 ```{r graph1-boxplot-moiz, eval=TRUE, fig.width=7.5, fig.height=5.5, fig.align='center', out.width='95%'}
-
 ggplot(wages, aes(x = education_level, y = wage_both, fill = education_level)) +
   geom_boxplot(outlier.alpha = 0.3, outlier.size = 1.2, width = 0.55, alpha = 0.75) +
   geom_jitter(width = 0.15, alpha = 0.2, size = 0.9, colour = "grey30") +
   scale_fill_brewer(palette = "Blues", direction = 1) +
   scale_y_continuous(labels = scales::dollar_format(prefix = "$", suffix = "/hr")) +
   labs(
-    title    = "Distribution of Median Hourly Wages by Education Level",
+    title = "Distribution of Median Hourly Wages by Education Level",
     subtitle = "Ontario, age 25+, all employees — 2006 to 2024",
-    x        = "Education Level",
-    y        = "Median Hourly Wage (CAD/hr)",
+    x = "Education Level",
+    y = "Median Hourly Wage (CAD/hr)",
     caption = paste(
       "Source: Ontario Ministry of Labour, Immigration, Training and Skills Development.",
       "Aggregate 'Total' rows and Canada-level observations excluded. Wage measure: median hourly, both sexes.",
       sep = "\n"
-    )) +
+    )
+  ) +
   theme_minimal(base_size = 11) +
   theme(
     axis.title.y = element_text(margin = margin(r = 10)),
-    axis.text.x     = element_text(angle = 38, hjust = 1, size = 8.5),
+    axis.text.x = element_text(angle = 38, hjust = 1, size = 8.5),
     legend.position = "none",
-    plot.title      = element_text(face = "bold", hjust=0.5),
-    plot.subtitle   = element_text(colour = "grey40", size = 9, hjust=0.5),
-    plot.caption    = element_text(colour = "grey50", size = 8, hjust=0.5)
+    plot.title = element_text(face = "bold", hjust = 0.5),
+    plot.subtitle = element_text(colour = "grey40", size = 9, hjust = 0.5),
+    plot.caption = element_text(colour = "grey50", size = 8, hjust = 0.5)
   )
 ```
 
@@ -272,15 +266,16 @@ ggplot(wages, aes(x = education_level, y = wage_both, fill = education_level)) +
 
 
 ```{r graph2-line-moiz, eval=TRUE, out.width='95%'}
-
 wages_trend <- wages %>%
   filter(education_level %in% c("University degree", "High school graduate")) %>%
   group_by(year, education_level) %>%
   summarise(mean_wage = mean(wage_both, na.rm = TRUE), .groups = "drop")
 
-ggplot(wages_trend, aes(x = year, y = mean_wage,
-                        colour = education_level,
-                        group  = education_level)) +
+ggplot(wages_trend, aes(
+  x = year, y = mean_wage,
+  colour = education_level,
+  group = education_level
+)) +
   geom_line(linewidth = 1.15) +
   geom_point(size = 2.3, alpha = 0.9) +
   scale_colour_manual(
@@ -302,9 +297,9 @@ ggplot(wages_trend, aes(x = year, y = mean_wage,
   theme_minimal(base_size = 11) +
   theme(
     axis.title.y = element_text(margin = margin(r = 10)),
-    plot.title      = element_text(face = "bold", hjust=0.5),
-    plot.subtitle   = element_text(colour = "grey40", size = 9, hjust=0.5),
-    plot.caption    = element_text(colour = "grey50", size = 8, hjust=0.5),
+    plot.title = element_text(face = "bold", hjust = 0.5),
+    plot.subtitle = element_text(colour = "grey40", size = 9, hjust = 0.5),
+    plot.caption = element_text(colour = "grey50", size = 8, hjust = 0.5),
     legend.position = "bottom"
   )
 ```
@@ -313,7 +308,7 @@ ggplot(wages_trend, aes(x = year, y = mean_wage,
 
 \newpage
 
-## LABEL: Student 2 (Asad) --- The Inference Specialist
+## Bootstrapping and Hypothesis Testing
 
 ### Hypothesis testing
 
@@ -343,9 +338,8 @@ kable(
   ),
   caption = "Welch two-sample t-test for high school graduates vs university degree holders"
 )
-
 ```
-The summary table compares all education categories, while the t-test focuses on "University degree" versus "High school graduate." The 95% confidence interval for the mean difference (High school - University) is approximately [-13.07, -10.42], which does not include 0. Therefore, we reject the null hypothesis and conclude with at least 95% confidence that university-degree workers have a higher mean wage than high-school graduates. This directly supports the research question that education level is associated with wage differences.
+**Interpretation.** The summary table compares all education categories, while the t-test focuses on "University degree" versus "High school graduate." The 95% confidence interval for the mean difference (High school - University) is approximately [-13.07, -10.42], which does not include 0. Therefore, we reject the null hypothesis and conclude with at least 95% confidence that university-degree workers have a higher mean wage than high-school graduates. This directly supports the research question that education level is associated with wage differences.
 
 Next, we test whether mean wages differ by immigrant status using a two-sample t-test for "Born in Canada" versus "Established immigrants, 10+ years," again using the test to obtain a 95% confidence interval for the mean difference.
 Null hypothesis: The mean wage is the same for these two immigrant-status groups.
@@ -373,7 +367,7 @@ kable(
 )
 ```
 
-The summary table shows all immigrant-status categories, and the t-test isolates "Born in Canada" versus "Established immigrants, 10+ years." The 95% confidence interval for the mean difference (Born in Canada - Established immigrants) is approximately [0.97, 4.82], which does not include 0. Therefore, we reject the null hypothesis and conclude with at least 95% confidence that Canadian-born workers in this comparison have a higher mean wage. This supports the second research question by showing a wage gap by immigrant status(the highest wage average immigrant status in fact).
+**Interpretation.** The summary table shows all immigrant-status categories, and the t-test isolates "Born in Canada" versus "Established immigrants, 10+ years." The 95% confidence interval for the mean difference (Born in Canada - Established immigrants) is approximately [0.97, 4.82], which does not include 0. Therefore, we reject the null hypothesis and conclude with at least 95% confidence that Canadian-born workers in this comparison have a higher mean wage. This supports the second research question by showing a wage gap by immigrant status(the highest wage average immigrant status in fact).
 
 Finally, we test whether immigrant-status wage differences remain within the university-educated subgroup using a two-sample t-test for "Born in Canada" versus "Established immigrants, 10+ years," and we use its 95% confidence interval for the mean difference.
 Null hypothesis: The mean wage is the same for these two immigrant-status groups among university-educated workers.
@@ -399,7 +393,7 @@ kable(
 )
 ```
 
-This final t-test focuses only on university-educated respondents. The 95% confidence interval for the mean difference (Born in Canada - Established immigrants) is approximately [1.88, 7.13], which does not include 0. Therefore, we reject the null hypothesis and conclude with at least 95% confidence that, even among university graduates, Canadian-born workers in this comparison have a higher mean wage. This addresses the third research question and supports the interpretation that the gap is not only an education effect.
+**Interpretation.** This final t-test focuses only on university-educated respondents. The 95% confidence interval for the mean difference (Born in Canada - Established immigrants) is approximately [1.88, 7.13], which does not include 0. Therefore, we reject the null hypothesis and conclude with at least 95% confidence that, even among university graduates, Canadian-born workers in this comparison have a higher mean wage. This addresses the third research question and supports the interpretation that the gap is not only an education effect.
 
 Taken together, these three t-tests show that wages differ significantly by education level, by immigrant status, and within the university-educated subgroup by immigrant status. Because none of the estimated confidence intervals include 0, each comparison provides evidence of a meaningful difference in mean wages. Overall, this strengthens the report's central conclusion: education is associated with higher wages, but the returns to education do not appear to be distributed equally across immigrant groups, which is consistent with the glass-ceiling framing in Ontario's labour market.
 
@@ -485,7 +479,7 @@ ggplot(bootstrap_plot_data, aes(x = mean_difference)) +
     linewidth = 0.8,
     linetype = "dashed"
   ) +
-  facet_wrap(~ comparison, ncol = 1, scales = "free_y") +
+  facet_wrap(~comparison, ncol = 1, scales = "free_y") +
   labs(
     title = "Bootstrap Distributions of Mean Wage Differences",
     x = "Bootstrap mean difference",
@@ -543,7 +537,7 @@ kable(
 )
 ```
 
-The bootstrap results reinforce the conclusions from the t-tests. If the 95% bootstrap confidence interval for a mean difference does not include 0, that indicates the estimated wage gap remains consistently positive or negative across repeated resamples of the data. For the education comparison, this supports the conclusion that university graduates earn more on average than high school graduates. For the two immigrant-status comparisons, bootstrap intervals that remain above 0 support the conclusion that Canadian-born workers earn more on average than established immigrants, both overall and within the university-educated subgroup.
+**Interpretation.** The bootstrap results reinforce the conclusions from the t-tests. If the 95% bootstrap confidence interval for a mean difference does not include 0, that indicates the estimated wage gap remains consistently positive or negative across repeated resamples of the data. For the education comparison, this supports the conclusion that university graduates earn more on average than high school graduates. For the two immigrant-status comparisons, bootstrap intervals that remain above 0 support the conclusion that Canadian-born workers earn more on average than established immigrants, both overall and within the university-educated subgroup.
 
 Overall, the bootstrap analysis strengthens the inference section by showing that the main findings are not driven only by the assumptions of the t-test. Because the resampled confidence intervals tell the same story as the analytical confidence intervals, we have stronger evidence that the observed wage gaps are real and consistent with the report's glass-ceiling interpretation.
 
