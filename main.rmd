@@ -795,7 +795,6 @@ Taken together, these results support the glass-ceiling interpretation that educ
 ```
 
 ## References
+Ministry of Labour, Immigration, training and Skills Development. ontario.ca. (2025, August 12). https://www.ontario.ca/page/ministry-labour-immigration-training-skills-development 
 
-- Ontario Ministry of Labour / Government of Ontario. *(Add exact titles and URLs.)*
-- Statistics Canada or other data sources. *(Add citations.)*
-- Methods: `boot` package (Canty and Ripley); regression texts as assigned.
+Ontario.ca. (n.d.). Wages by education level. Wages by education level - Dataset - Ontario Data Catalogue. https://data.ontario.ca/dataset/wages-by-education-level 
