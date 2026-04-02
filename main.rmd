@@ -306,6 +306,90 @@ ggplot(wages_trend, aes(
 
 **Interpretation.** Graph 2 tracks the trajectory of median hourly wages for two anchor education groups, university degree holders and high school graduates, across the full 2006–2024 period in Ontario. Both groups show a general upward trend in nominal wages, consistent with broader Ontario labour market growth and inflationary pressures. However, the gap between the two lines does not remain constant: the separation widens in more recent years, indicating that the wage premium associated with a university education has grown over time. This trend is significant for our research question because it establishes the escalating scale of the credential premium that Ontario workers, including immigrants, must access. If immigrant workers with university degrees are not capturing this premium at the same rate as Canadian-born workers, then the glass ceiling represents not just a static wage gap but a compounding disadvantage that has grown over nearly two decades. Taken together, Graphs 1 and 2 establish that educational attainment is a powerful predictor of wages in Ontario in the aggregate, making any systematic deviation from this pattern for immigrants a meaningful indicator of structural inequity, a question the inference and modelling sections will address directly.
 
+```{r graph3-immigrant-trend-moiz, eval=TRUE, fig.width=7.5, fig.height=5.5, fig.align='center', out.width='95%'}
+wages_immig <- wages %>%
+  mutate(
+    immig_group = case_when(
+      str_detect(immigrant_status, regex("born in canada", ignore_case = TRUE)) ~ "Born in Canada",
+      str_detect(immigrant_status, regex("landed", ignore_case = TRUE))         ~ "Total Landed Immigrants",
+      TRUE                                                                       ~ NA_character_
+    )
+  ) %>%
+  filter(!is.na(immig_group)) %>%
+  group_by(year, immig_group) %>%
+  summarise(mean_wage = mean(wage_both, na.rm = TRUE), .groups = "drop")
+
+ggplot(wages_immig, aes(x = year, y = mean_wage,
+                        colour = immig_group,
+                        group  = immig_group)) +
+  geom_line(linewidth = 1.15) +
+  geom_point(size = 2.3, alpha = 0.9) +
+  scale_colour_manual(
+    values = c("Born in Canada" = "#1d6fa4", "Total Landed Immigrants" = "#c0392b"),
+    name   = "Worker Group"
+  ) +
+  scale_y_continuous(labels = scales::dollar_format(prefix = "$", suffix = "/hr")) +
+  scale_x_continuous(breaks = scales::pretty_breaks(n = 9)) +
+  labs(
+    title    = "Wage Trends Over Time: Immigrants vs. Canadian-Born Workers",
+    subtitle = "Mean of median hourly wages (CAD/hr) — Ontario, age 25+, all education levels",
+    x        = "Year",
+    y        = "Mean of Median Hourly Wage (CAD/hr)",
+    caption  = "Source: Ontario MLITSD. Wage measure: median hourly, both sexes.\n'Total Landed Immigrants' aggregates very recent, recent, and established immigrants."
+  ) +
+  theme_minimal(base_size = 11) +
+  theme(
+    axis.title.y = element_text(margin = margin(r = 10)),
+    plot.title = element_text(face = "bold", hjust = 0.5),
+    plot.subtitle = element_text(colour = "grey40", size = 9, hjust = 0.5),
+    plot.caption = element_text(colour = "grey50", size = 8, hjust = 0.5),
+    legend.position = "bottom"
+  )
+```
+
+```{r graph4-university-immigrant-moiz, eval=TRUE, fig.width=7.5, fig.height=5.5, fig.align='center', out.width='95%'}
+
+wages_univ <- wages %>%
+  filter(education_level == "University degree") %>%
+  mutate(
+    immig_group = case_when(
+      str_detect(immigrant_status, regex("born in canada", ignore_case = TRUE)) ~ "Born in Canada",
+      str_detect(immigrant_status, regex("landed", ignore_case = TRUE))         ~ "Total Landed Immigrants",
+      TRUE                                                                       ~ NA_character_
+    )
+  ) %>%
+  filter(!is.na(immig_group)) %>%
+  group_by(year, immig_group) %>%
+  summarise(mean_wage = mean(wage_both, na.rm = TRUE), .groups = "drop")
+
+ggplot(wages_univ, aes(x = year, y = mean_wage,
+                       colour = immig_group,
+                       group  = immig_group)) +
+  geom_line(linewidth = 1.15) +
+  geom_point(size = 2.3, alpha = 0.9) +
+  scale_colour_manual(
+    values = c("Born in Canada" = "#1d6fa4", "Total Landed Immigrants" = "#c0392b"),
+    name   = "Worker Group"
+  ) +
+  scale_y_continuous(labels = scales::dollar_format(prefix = "$", suffix = "/hr")) +
+  scale_x_continuous(breaks = scales::pretty_breaks(n = 9)) +
+  labs(
+    title    = "University Degree Holders: Immigrants vs. Canadian-Born Workers",
+    subtitle = "Mean of median hourly wages (CAD/hr) — Ontario, age 25+, university degree only",
+    x        = "Year",
+    y        = "Mean of Median Hourly Wage (CAD/hr)",
+    caption  = "Source: Ontario MLITSD. Wage measure: median hourly, both sexes.\nFiltered to 'University degree' education level only."
+  ) +
+  theme_minimal(base_size = 11) +
+  theme(
+    axis.title.y = element_text(margin = margin(r = 10)),
+    plot.title = element_text(face = "bold", hjust = 0.5),
+    plot.subtitle = element_text(colour = "grey40", size = 9, hjust = 0.5),
+    plot.caption = element_text(colour = "grey50", size = 8, hjust = 0.5),
+    legend.position = "bottom"
+  )
+```
+
 \newpage
 
 ## Bootstrapping and Hypothesis Testing
