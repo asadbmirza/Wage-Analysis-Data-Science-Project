@@ -75,12 +75,12 @@ ttest_to_long_table <- function(test_obj, group_1, group_2, diff_label) {
   )
 }
 ```
-
-## Project overview
+\newpage
+# Project overview
 
 This project examines whether **education** predicts **wages** in a similar way for **immigrants in Ontario** as it might for other groups, or whether systematic differences suggest barriers consistent with a **glass ceiling** (e.g., credentials not translating equally into earnings). We combine exploratory work, inference, and modeling to connect Ontario labour data to that question.
 
-## Research questions
+# Research questions
 
 1. How strongly is educational attainment associated with wages among Ontario residents with an immigrant background?
 2. Does the education--wage gradient differ by gender, region, immigrant class, or years since landing?
@@ -106,9 +106,9 @@ wages_raw <- readr::read_csv(
 wages <- wages_raw
 ```
 
-## The Foundation and Visuals
+# The Foundation and Visuals
 
-### Background: Ontario Ministry of Labour, Immigration, Training and Skills Development
+## Background: Ontario Ministry of Labour, Immigration, Training and Skills Development
 
 The Ontario Ministry of Labour, Immigration, Training and Skills Development (MLITSD) collects and publishes wage data as part of its mandate to monitor labour market equity, inform evidence-based policy, and provide transparency to workers, employers, researchers, and the public. The dataset used in this analysis, *Wages by Education Level*, is published under the Open Government Licence, Ontario and tracks median hourly wages disaggregated by educational attainment, immigrant status, age group, sex, type of employment, and geography, spanning the years 2006 to 2024 across Canada and Ontario.
 
@@ -119,7 +119,7 @@ For immigrants specifically, wage gaps relative to Canadian-born workers are a w
 This section lays the foundation for that analysis: it defines the variables, describes the data cleaning decisions, and presents exploratory visualizations that establish the patterns we will subject to formal statistical testing in subsequent sections.
 
 
-### Data Dictionary
+## Data Dictionary
 
 The raw dataset contains one row per unique combination of year, geography, immigrant status, type of work, education level, and age group. Wage values are stored in three separate columns — `Both sexes`, `Men`, and `Women`, representing the **median hourly wage** in Canadian dollars for each group. Our analysis uses `Both sexes` as the primary outcome variable unless a gender-disaggregated comparison is specified.
 
@@ -137,7 +137,7 @@ The raw dataset contains one row per unique combination of year, geography, immi
 | `Women`          | Median hourly wage (CAD/hr) for women                                                            | Numeric (CAD/hour)                                 | Retained for gender-disaggregated analysis in later sections                                                        |
 
 
-### Data Cleaning
+## Data Cleaning
 
 Rows where `EDUCATION` or `IMMIGRANT` contained the word `"Total"` were removed prior to analysis to prevent double-counting, as these aggregate rows represent summaries across sub-groups already present in the data. The dataset was further filtered to Ontario only, since Canada-level rows would conflate Ontario's labour market with national trends outside this project's scope.
 
@@ -202,7 +202,7 @@ glimpse(wages)
 
 ---
 
-### Exploratory Data Analysis
+## Exploratory Data Analysis
 
 The table below presents the mean, median, and standard deviation of the median hourly wage (`wage_both`, both sexes) for each education level, pooled across all years and immigrant status categories in the Ontario, age 25+ subset.
 
@@ -396,9 +396,9 @@ ggplot(wages_univ, aes(x = year, y = mean_wage,
 
 \newpage
 
-## Bootstrapping and Hypothesis Testing
+# Bootstrapping and Hypothesis Testing
 
-### Hypothesis testing
+## Hypothesis testing
 
 We are testing whether mean wages differ by education level. For inference, we use a two-sample t-test on "University degree" vs "High school graduate" to estimate both significance and the 95% confidence interval for the mean difference.
 Null hypothesis: The mean wage is the same for these two education groups.
@@ -485,7 +485,7 @@ kable(
 
 Taken together, these three t-tests show that wages differ significantly by education level, by immigrant status, and within the university-educated subgroup by immigrant status. Because none of the estimated confidence intervals include 0, each comparison provides evidence of a meaningful difference in mean wages. Overall, this strengthens the report's central conclusion: education is associated with higher wages, but the returns to education do not appear to be distributed equally across immigrant groups, which is consistent with the glass-ceiling framing in Ontario's labour market.
 
-### Bootstrapping
+## Bootstrapping
 
 Bootstrapping gives us a second way to assess uncertainty in the estimated wage gaps. Unlike the t-test, which relies on distributional assumptions, bootstrap resampling repeatedly samples from the observed data with replacement and builds an empirical distribution of the mean difference. This is especially useful here because wage data can be skewed and may not follow a perfectly normal distribution.
 
@@ -631,9 +631,9 @@ Overall, the bootstrap analysis strengthens the inference section by showing tha
 
 \newpage
 
-## The Model and Conclusion
+# The Model and Conclusion
 
-### Regression analysis
+## Regression analysis
 ```{r regression-ishan, eval=TRUE}
 # 1. Prepare data with explicit reference levels
 wages_model <- wages %>%
@@ -715,7 +715,7 @@ knitr::kable(
 
 Immigrant-status coefficients are negative relative to Canadian-born workers, even after controlling for education and year (e.g., established immigrants -2.895, recent immigrants 5+ to 10 years -7.954, very recent immigrants -10.259 CAD/hr; all p < 0.001). The positive year effect (+0.508 CAD/hr, p < 0.001) indicates general wage growth over time. Overall, the model supports the main conclusion: education is rewarded, but returns are not equitably distributed across immigrant groups, consistent with the glass-ceiling framing.
 
-### Cross-validation
+## Cross-validation
 ```{r cross-validation-ishan, eval=TRUE}
 # 4-fold cross-validation
 set.seed(123)
@@ -777,7 +777,7 @@ knitr::kable(
 ```
 **Interpretation.** We evaluated model performance using 4-fold cross-validation. In each fold, the model was trained on 3 parts of the data and tested on the remaining part, then MSE was computed on the test fold. Fold MSE values ranged from 9.105 to 14.291, with an average MSE of 11.649. The corresponding average RMSE is 3.413 CAD/hr, meaning predictions are typically off by about $3.4 per hour on unseen data. Overall, the model shows moderate and fairly stable predictive performance across folds.
 
-### Summary and conclusion
+## Summary and conclusion
 
 Overall, the evidence indicates that education is strongly associated with higher wages in Ontario, but these returns are not equally distributed across immigrant groups. Exploratory analysis shows a clear wage gradient by education level and a widening education-related wage gap over time. Inference results and bootstrap confidence intervals consistently show significant differences in wages by both education and immigrant status, including within the university-educated subgroup.
 
@@ -787,14 +787,14 @@ Taken together, these results support the glass-ceiling interpretation: educatio
 
 \newpage
 
-## Appendix: All code
+# Appendix: All code
 
 **LABEL (remove before submission):** Ensure this lists the final, clean versions of everyone's chunks (knitr will pull in the labeled chunks below). If you rename chunks, update `ref.label` accordingly.
 
 ```{r appendix-all-code, ref.label=c("libraries", "data-load-moiz", "table1-summary-moiz", "graph1-boxplot-moiz", "graph2-line-moiz", "hypothesis-tests-education-asad", "hypothesis-tests-immigrant-asad", "hypothesis-tests-university-immigrant-asad", "ci-asad", "bootstrap-asad", "regression-ishan", "cross-validation-ishan"), echo=TRUE, eval=FALSE}
 ```
 
-## References
+# References
 
 - Ontario Ministry of Labour / Government of Ontario. *(Add exact titles and URLs.)*
 - Statistics Canada or other data sources. *(Add citations.)*
