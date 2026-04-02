@@ -715,7 +715,6 @@ knitr::kable(
 
 Those with an immigrant-status earn less than Canadian-born workers, even after controlling education and year (established immigrants -2.895, recent immigrants 5+ to 10 years -7.954, very recent immigrants -10.259 CAD/hr, all p < 0.001 so the results are strongly supported). The positive year effect (+0.508 CAD/hr, p < 0.001) indicates general wage growth over time but not nearly as high as Canadian-born workers. Overall, the model supports the main conclusion that education is rewarded, but the return is not equally distributed across immigrant groups indicating the presence of a glass-ceiling.
 
-
 ### Cross-validation
 ```{r cross-validation-ishan, eval=TRUE}
 # 4-fold cross-validation
@@ -776,15 +775,15 @@ knitr::kable(
 ) %>%
   kableExtra::kable_styling(latex_options = "hold_position")
 ```
-**Interpretation.** We evaluated model performance using 4-fold cross-validation. In each fold, the model was trained on 3 parts of the data and tested on the remaining part, then MSE was computed on the test fold. Fold MSE values ranged from 9.105 to 14.291, with an average MSE of 11.649. The corresponding average RMSE is 3.413 CAD/hr, meaning predictions are typically off by about $3.4 per hour on unseen data. Overall, the model shows moderate and fairly stable predictive performance across folds.
+**Interpretation.** We evaluated the regression model performance using a 4-fold cross-validation. In each fold, the model was trained on 3 parts of the data and tested on the remaining part, then MSE was computed on the test fold. MSE values ranged from 9.105 to 14.291, with an average of 11.649. The corresponding average RMSE is 3.413 CAD/hr, meaning predictions are typically off by about $3.4 per hour on unseen data. Overall, the model shows a fairly stable predictive performance across folds.
 
 ### Summary and conclusion
 
-Overall, the evidence indicates that education is strongly associated with higher wages in Ontario, but these returns are not equally distributed across immigrant groups. Exploratory analysis shows a clear wage gradient by education level and a widening education-related wage gap over time. Inference results and bootstrap confidence intervals consistently show significant differences in wages by both education and immigrant status, including within the university-educated subgroup.
+Overall, the evidence indicates that education is strongly associated with higher wages in Ontario, but these returns are not equally distributed across immigrant groups. Analysis shows a clear wage difference by education level and an increasing education-related wage gap over time. Inference results and bootstrap confidence intervals consistently show significant differences in wages by both education and immigrant status, including within the university-educated subgroup.
 
-The regression model confirms that higher education categories are associated with higher hourly wages after controlling for time, while several immigrant-status groups remain at a wage disadvantage relative to Canadian-born workers. Cross-validation results also suggest moderate and stable out-of-sample predictive performance, supporting the reliability of the model findings beyond the training sample.
+The regression model confirms that higher education categories are associated with higher hourly wages after controlling for time, while several immigrant-status groups remain at a wage disadvantage relative to Canadian-born workers. Cross-validation results also suggest moderate and stable out-of-sample predictive performance, supporting the reliability of the model findings.
 
-Taken together, these results support the glass-ceiling interpretation: education does improve earnings on average, but comparable credentials do not translate into equal wage outcomes across groups. From a policy perspective, this suggests the need for stronger credential recognition, improved newcomer labor-market integration, and employer-side equity measures to ensure fairer wage returns to education in Ontario.
+Taken together, these results support the glass-ceiling interpretation that education does improve earnings on average, but these earnings are not equally distributed across groups. This suggests the need for stronger educational recognition and improved newcomer wages, to ensure fairer wage returns to education in Ontario regardless of status.
 
 \newpage
 
