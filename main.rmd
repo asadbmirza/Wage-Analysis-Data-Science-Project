@@ -325,7 +325,7 @@ ggplot(wages_immig, aes(x = year, y = mean_wage,
   geom_line(linewidth = 1.15) +
   geom_point(size = 2.3, alpha = 0.9) +
   scale_colour_manual(
-    values = c("Born in Canada" = "#1d6fa4", "Total Landed Immigrants" = "#c0392b"),
+    values = c("Born in Canada" = "#2a9d8f", "Total Landed Immigrants" = "#f4a261"),
     name   = "Worker Group"
   ) +
   scale_y_continuous(labels = scales::dollar_format(prefix = "$", suffix = "/hr")) +
@@ -346,6 +346,8 @@ ggplot(wages_immig, aes(x = year, y = mean_wage,
     legend.position = "bottom"
   )
 ```
+
+**Interpretation.** Graph 3 compares the median hourly wage trajectories of landed immigrants and Canadian-born workers across all education levels in Ontario from 2006 to 2024. Two patterns stand out. First, a persistent wage gap is visible throughout the entire observation period: Canadian-born workers consistently earn more per hour than landed immigrants, even before controlling for education. Second, while both groups experience nominal wage growth over time, the gap does not meaningfully close, and in some periods appears to widen, suggesting that general labour market growth has not translated into convergence between the two groups. This is significant for our research question because it establishes that the immigrant wage disadvantage is not simply a credential issue: even when all education levels are pooled together, immigrants earn less.
 
 ```{r graph4-university-immigrant-moiz, eval=TRUE, fig.width=7.5, fig.height=5.5, fig.align='center', out.width='95%'}
 
@@ -368,7 +370,7 @@ ggplot(wages_univ, aes(x = year, y = mean_wage,
   geom_line(linewidth = 1.15) +
   geom_point(size = 2.3, alpha = 0.9) +
   scale_colour_manual(
-    values = c("Born in Canada" = "#1d6fa4", "Total Landed Immigrants" = "#c0392b"),
+    values = c("Born in Canada" = "#2a9d8f", "Total Landed Immigrants" = "#f4a261"),
     name   = "Worker Group"
   ) +
   scale_y_continuous(labels = scales::dollar_format(prefix = "$", suffix = "/hr")) +
@@ -389,6 +391,8 @@ ggplot(wages_univ, aes(x = year, y = mean_wage,
     legend.position = "bottom"
   )
 ```
+
+**Interpretation.** Graph 4 provides the most direct visual evidence relevant to the glass ceiling hypothesis examined in this report. By restricting the comparison to workers who hold a university degree, it controls for educational attainment and isolates the wage gap attributable to immigrant status alone. The persistent separation between the two lines with Canadian-born university graduates earning more than their immigrant counterparts in nearly every year from 2006 to 2024 suggests that a university credential does not yield equal labour market returns for all who hold it. Notably, the gap does not consistently narrow over time, which would be expected if the disadvantage were driven purely by short-term integration barriers such as language or unfamiliarity with Canadian workplace norms. Instead, the sustained gap points toward more structural explanations: non-recognition of foreign credentials, employer discrimination, or network disadvantages that persist even among established immigrants. This pattern directly motivates the formal hypothesis tests and regression model in the sections that follow.
 
 \newpage
 
