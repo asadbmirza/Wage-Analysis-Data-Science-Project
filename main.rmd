@@ -19,7 +19,6 @@ output:
 ---
 
 ```{r setup, include=FALSE}
-# Set eval=TRUE on analysis chunks once your data path and cleaning are ready.
 knitr::opts_chunk$set(
   echo = FALSE,
   message = FALSE,
@@ -90,13 +89,10 @@ This project examines whether **education** predicts **wages** in a similar way 
 # Shared packages;
 library(tidyverse)
 library(knitr)
-library(kableExtra) # optional: nicer tables in PDF
+library(kableExtra)
 ```
 
 ```{r data-load-moiz, eval=TRUE}
-# MOIZ: readr::read_csv() is preferred over read.csv(): faster, tibbles, consistent parsing, progress bar.
-# trim_ws = TRUE helps columns like WAGE RATE / EDUCATION that have leading spaces in this file.
-# show_col_types = FALSE keeps knit/PDF output shorter (omit if you want to see column guesses).
 wages_raw <- readr::read_csv(
   "data.csv",
   trim_ws = TRUE,
@@ -350,7 +346,6 @@ ggplot(wages_immig, aes(x = year, y = mean_wage,
 **Interpretation.** Graph 3 compares the median hourly wage trajectories of landed immigrants and Canadian-born workers across all education levels in Ontario from 2006 to 2024. Two patterns stand out. First, a persistent wage gap is visible throughout the entire observation period: Canadian-born workers consistently earn more per hour than landed immigrants, even before controlling for education. Second, while both groups experience nominal wage growth over time, the gap does not meaningfully close, and in some periods appears to widen, suggesting that general labour market growth has not translated into convergence between the two groups. This is significant for our research question because it establishes that the immigrant wage disadvantage is not simply a credential issue: even when all education levels are pooled together, immigrants earn less.
 
 ```{r graph4-university-immigrant-moiz, eval=TRUE, fig.width=7.5, fig.height=5.5, fig.align='center', out.width='95%'}
-
 wages_univ <- wages %>%
   filter(education_level == "University degree") %>%
   mutate(
@@ -406,7 +401,6 @@ Alternative hypothesis: The mean wage is different between these two education g
 
 ```{r hypothesis-tests-education-asad, eval=TRUE}
 wages_without_total <- wages %>% filter(education_level != "Total, all education levels")
-
 # Summaries use the numeric wage columns (WAGE RATE is only the label "Median hourly wage").
 wages_by_education <- wages_without_total %>%
   group_by(education_level) %>%
@@ -634,44 +628,29 @@ Overall, the bootstrap analysis strengthens the inference section by showing tha
 # The Model and Conclusion
 
 ## Regression analysis
-```{r regression-ishan, eval=TRUE}
-# 1. Prepare data with explicit reference levels
+```{r regression, eval=TRUE}
+#Prepare Data
 wages_model <- wages %>%
-  mutate(
-    education_level = relevel(factor(as.character(education_level), ordered = FALSE), 
-                              ref = "High school graduate"),
-    immigrant_status = relevel(factor(immigrant_status), 
-                               ref = "Born in Canada")
-  ) %>%
-  filter(
-    !is.na(wage_both),
-    !is.na(education_level),
-    !is.na(immigrant_status)
-  )
+  mutate(education_level = relevel(factor(education_level, ordered = FALSE), ref = "High school graduate"),
+          immigrant_status = relevel(factor(immigrant_status), ref = "Born in Canada")) %>% 
+  filter(!is.na(wage_both),!is.na(education_level),!is.na(immigrant_status))
 
-wages_model <- wages_model %>%
-  mutate(year_centered = year - 2006)
+wages_model <- wages_model %>% mutate(year_centered = year - 2006)
 
+#Regression Model
 fit_mlr <- lm(wage_both ~ education_level + immigrant_status + year_centered, data = wages_model)
 
-# 3. Extract and format results
+#Extract Results
 coef_mat <- summary(fit_mlr)$coefficients
-ci_mat <- confint(fit_mlr)
 
-reg_table <- tibble::tibble(
-  term = rownames(coef_mat),
-  estimate = coef_mat[, 1],
-  std_error = coef_mat[, 2],
-  p_value = coef_mat[, 4],
-  ci_lower = ci_mat[, 1],
-  ci_upper = ci_mat[, 2]
-) %>%
-  mutate(across(where(is.numeric), ~ round(.x, 3)))
+#Create Table with Results
+reg_table <- tibble::tibble(term = rownames(coef_mat),estimate = coef_mat[, 1],p_value = coef_mat[, 4]) 
 
-reg_table_clean <- reg_table %>%
-  mutate(term = stringr::str_remove_all(term, "education_level|immigrant_status")) %>%
+#Clean labels
+reg_table_clean <- reg_table %>% mutate(term = stringr::str_remove_all(term, "education_level|immigrant_status")) %>%
   mutate(term = ifelse(term == "(Intercept)", "Baseline (High School / Born in Canada)", term))
 
+# Keep only important variables
 important_terms <- c(
   "Baseline (High School / Born in Canada)",
   "0 - 8 years",
@@ -685,6 +664,7 @@ important_terms <- c(
   "year_centered"
 )
 
+#Name cleaning
 reg_table_compact <- reg_table_clean %>%
   filter(term %in% important_terms) %>%
   mutate(
@@ -699,16 +679,9 @@ reg_table_compact <- reg_table_clean %>%
     ),
     p_value = ifelse(p_value < 0.001, "<0.001", sprintf("%.3f", p_value))
   ) %>%
-  transmute(
-    Variable = term,
-    Estimate = round(estimate, 3),
-    `p-value` = p_value
-  )
+  transmute(Variable = term, Estimate = round(estimate, 3),`p-value` = p_value)
 
-knitr::kable(
-  reg_table_compact,
-  booktabs = TRUE,
-  caption = "Key Regression Coefficients for Median Hourly Wage (CAD/hr)"
+knitr::kable(reg_table_compact, booktabs = TRUE, caption = "Key Regression Coefficients for Median Hourly Wage (CAD/hr)"
 )
 ```
 **Interpretation.** The linear regression model shows that education is strongly associated with higher wages, but the wage gap for those with immigrant-status remains. The baseline group (high school graduates born in Canada in 2006) has a predicted wage of 18.595 CAD/hr. Compared to this baseline, those with university-level education have higher wages (University degree +11.745, Bachelor’s +9.196, Above bachelor’s +16.303 CAD/hr, all p < 0.001 so the results are strongly supported). Those with lower education categories are associated with lower wages. The only education category without a clear difference is some post-secondary (-0.147 CAD/hr, p = 0.744, but as p value is high, results are not as accurate).
@@ -717,25 +690,20 @@ Those with an immigrant-status earn less than Canadian-born workers, even after 
 
 
 ## Cross-validation
-```{r cross-validation-ishan, eval=TRUE}
+```{r cross-validation, eval=TRUE}
 # 4-fold cross-validation
 set.seed(123)
 
-d <- wages %>%
-  mutate(
-    education_level = relevel(factor(as.character(education_level), ordered = FALSE),
-      ref = "High school graduate"
-    ),
-    immigrant_status = relevel(factor(immigrant_status), ref = "Born in Canada"),
-    year_centered = year - 2006
-  ) %>%
-  filter(!is.na(wage_both), !is.na(education_level), 
-         !is.na(immigrant_status), !is.na(year_centered))
+d <- wages %>% mutate( education_level = relevel(factor(as.character(education_level), ordered = FALSE), ref = "High school graduate"),
+                       immigrant_status = relevel(factor(immigrant_status), ref = "Born in Canada"),
+                       year_centered = year - 2006) %>%
+  filter(!is.na(wage_both), !is.na(education_level), !is.na(immigrant_status), !is.na(year_centered))
 
 k <- 4
 d <- d %>% mutate(group_ind = sample(1:k, size = nrow(d), replace = TRUE))
 mse_vec <- numeric(k)
 
+#Perform cross-validation
 for (i in 1:k) {
   d.train <- d %>% filter(group_ind != i)
   d.test <- d %>% filter(group_ind == i)
@@ -744,36 +712,19 @@ for (i in 1:k) {
   mse_vec[i] <- mean((d.test$wage_both - y_hat)^2, na.rm = TRUE)
 }
 
-# --- TABLE 1: Detailed Fold Results ---
-cv_results <- tibble::tibble(
-  Fold = paste0("Fold ", 1:k),
-  `MSE ((CAD/hr)^2)` = round(mse_vec, 3)
-)
+# TABLE 1: Detailed Fold Results
+cv_results <- tibble::tibble(Fold = paste0("Fold ", 1:k), `MSE ((CAD/hr)^2)` = round(mse_vec, 3))
 
-knitr::kable(
-  cv_results, 
-  booktabs = TRUE, 
-  caption = "4-Fold Cross-Validation: Mean Squared Error by Fold",
-  escape = FALSE # Allows the superscript in the header to render correctly
-) %>%
+knitr::kable(cv_results, booktabs = TRUE, caption = "4-Fold Cross-Validation: Mean Squared Error by Fold", escape = FALSE)%>%
   kableExtra::kable_styling(latex_options = "hold_position")
 
-# --- TABLE 2: Summary Metrics ---
+# TABLE 2: Summary Metrics
 overall_mse <- mean(mse_vec)
 overall_rmse <- sqrt(overall_mse)
 
-summary_metrics <- tibble::tibble(
-  Metric = c("Average MSE", "Average RMSE"),
-  Unit = c("(CAD/hr)^2", "CAD/hr"),
-  Value = round(c(overall_mse, overall_rmse), 3)
-)
+summary_metrics <- tibble::tibble(Metric = c("Average MSE", "Average RMSE"), Unit = c("(CAD/hr)^2", "CAD/hr"), Value = round(c(overall_mse, overall_rmse), 3))
 
-knitr::kable(
-  summary_metrics, 
-  booktabs = TRUE, 
-  caption = "Overall Model Predictive Performance",
-  col.names = c("Metric", "Unit", "Value")
-) %>%
+knitr::kable(summary_metrics, booktabs = TRUE, caption = "Overall Model Predictive Performance", col.names = c("Metric", "Unit", "Value")) %>%
   kableExtra::kable_styling(latex_options = "hold_position")
 ```
 **Interpretation.** We evaluated the regression model performance using a 4-fold cross-validation. In each fold, the model was trained on 3 parts of the data and tested on the remaining part, then MSE was computed on the test fold. MSE values ranged from 9.105 to 14.291, with an average of 11.649. The corresponding average RMSE is 3.413 CAD/hr, meaning predictions are typically off by about $3.4 per hour on unseen data. Overall, the model shows a fairly stable predictive performance across folds.
@@ -789,10 +740,7 @@ Taken together, these results support the glass-ceiling interpretation that educ
 \newpage
 
 # Appendix: All code
-
-**LABEL (remove before submission):** Ensure this lists the final, clean versions of everyone's chunks (knitr will pull in the labeled chunks below). If you rename chunks, update `ref.label` accordingly.
-
-```{r appendix-all-code, ref.label=c("libraries", "data-load-moiz", "table1-summary-moiz", "graph1-boxplot-moiz", "graph2-line-moiz", "hypothesis-tests-education-asad", "hypothesis-tests-immigrant-asad", "hypothesis-tests-university-immigrant-asad", "ci-asad", "bootstrap-asad", "regression-ishan", "cross-validation-ishan"), echo=TRUE, eval=FALSE}
+```{r appendix-all-code, ref.label=c("libraries", "data-load-moiz", "table1-summary-moiz", "graph1-boxplot-moiz", "graph2-line-moiz", "hypothesis-tests-education-asad", "hypothesis-tests-immigrant-asad", "hypothesis-tests-university-immigrant-asad", "ci-asad", "bootstrap-asad", "regression", "cross-validation"), echo=TRUE, eval=FALSE}
 ```
 
 # References
