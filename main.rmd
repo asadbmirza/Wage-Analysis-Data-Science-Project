@@ -30,11 +30,24 @@ knitr::opts_chunk$set(
 )
 
 ttest_to_table <- function(test_obj, group_1, group_2, diff_label) {
+  estimate_names <- names(test_obj$estimate)
+
+  get_group_mean <- function(group_label, fallback_index) {
+    idx <- which(grepl(group_label, estimate_names, fixed = TRUE))
+    if (length(idx) == 1) {
+      return(unname(test_obj$estimate[[idx]]))
+    }
+    unname(test_obj$estimate[[fallback_index]])
+  }
+
+  mean_group_1 <- get_group_mean(group_1, 1)
+  mean_group_2 <- get_group_mean(group_2, 2)
+
   tibble::tibble(
     comparison = paste(group_1, "vs", group_2),
-    mean_group_1 = unname(test_obj$estimate[[1]]),
-    mean_group_2 = unname(test_obj$estimate[[2]]),
-    mean_difference = unname(diff(test_obj$estimate)),
+    mean_group_1 = mean_group_1,
+    mean_group_2 = mean_group_2,
+    mean_difference = mean_group_1 - mean_group_2,
     t_statistic = unname(test_obj$statistic),
     df = unname(test_obj$parameter),
     p_value = test_obj$p.value,
@@ -72,6 +85,51 @@ ttest_to_long_table <- function(test_obj, group_1, group_2, diff_label) {
       sprintf("%.3f", summary_tbl$ci_upper)
     )
   )
+}
+
+run_immigrant_status_test <- function(data, mean_caption, test_caption) {
+  groups <- c("Born in Canada", "Established immigrants, 10+ years")
+
+  mean_tbl <- stats::aggregate(
+    wage_both ~ immigrant_status,
+    data = data,
+    FUN = function(x) mean(x, na.rm = TRUE)
+  )
+  names(mean_tbl)[2] <- "mean_wage"
+  mean_tbl <- tibble::as_tibble(mean_tbl)
+
+  test_data <- data[data$immigrant_status %in% groups, , drop = FALSE]
+
+  test_obj <- stats::t.test(wage_both ~ immigrant_status, data = test_data)
+
+  print(knitr::kable(mean_tbl, caption = mean_caption))
+
+  knitr::kable(
+    ttest_to_long_table(
+      test_obj,
+      groups[1],
+      groups[2],
+      paste(groups, collapse = " - ")
+    ),
+    caption = test_caption
+  )
+}
+
+bootstrap_mean_diff <- function(group_a, group_b, reps = 1000) {
+  group_a <- group_a[!is.na(group_a)]
+  group_b <- group_b[!is.na(group_b)]
+
+  replicate(reps, {
+    mean(sample(group_a, size = length(group_a), replace = TRUE)) -
+      mean(sample(group_b, size = length(group_b), replace = TRUE))
+  })
+}
+
+bootstrap_from_groups <- function(data, group_col, group_a, group_b, reps = 1000) {
+  vec_a <- data$wage_both[data[[group_col]] == group_a]
+  vec_b <- data$wage_both[data[[group_col]] == group_b]
+
+  bootstrap_mean_diff(vec_a, vec_b, reps = reps)
 }
 ```
 \newpage
@@ -223,19 +281,21 @@ wages_immig <- wages %>%
   mutate(
     immig_group = case_when(
       str_detect(immigrant_status, regex("born in canada", ignore_case = TRUE)) ~ "Born in Canada",
-      str_detect(immigrant_status, regex("landed", ignore_case = TRUE))         ~ "Total Landed Immigrants",
-      TRUE                                                                       ~ NA_character_
+      str_detect(immigrant_status, regex("landed", ignore_case = TRUE)) ~ "Total Landed Immigrants",
+      TRUE ~ NA_character_
     )
   ) %>%
   filter(!is.na(immig_group)) %>%
   group_by(year, immig_group) %>%
   summarise(mean_wage = mean(wage_both, na.rm = TRUE), .groups = "drop")
 
-ggplot(wages_immig, aes(x = year, y = mean_wage, 
-                        colour = immig_group, 
-                        group = immig_group)) +
-  geom_line(linewidth = 1) + 
-  geom_point(size = 1.8, alpha = 0.9) + 
+ggplot(wages_immig, aes(
+  x = year, y = mean_wage,
+  colour = immig_group,
+  group = immig_group
+)) +
+  geom_line(linewidth = 1) +
+  geom_point(size = 1.8, alpha = 0.9) +
   scale_colour_manual(
     values = c("Born in Canada" = "#2a9d8f", "Total Landed Immigrants" = "#f4a261"),
     name   = "Worker Group"
@@ -249,10 +309,10 @@ ggplot(wages_immig, aes(x = year, y = mean_wage,
     y        = "Mean Wage (CAD/hr)",
     caption  = "Source: Ontario MLITSD. 'Total Landed Immigrants' includes all arrival categories."
   ) +
-  theme_minimal(base_size = 9) + 
+  theme_minimal(base_size = 9) +
   theme(
     axis.title.y = element_text(margin = margin(r = 10)),
-    plot.title = element_text(face = "bold", size = 10, hjust = 0.5), 
+    plot.title = element_text(face = "bold", size = 10, hjust = 0.5),
     plot.subtitle = element_text(colour = "grey40", size = 8, hjust = 0.5),
     plot.caption = element_text(colour = "grey50", size = 7, hjust = 0.5),
     legend.position = "bottom",
@@ -269,31 +329,36 @@ wages_univ <- wages %>%
   mutate(
     immig_group = case_when(
       str_detect(immigrant_status, regex("born in canada", ignore_case = TRUE)) ~ "Born in Canada",
-      str_detect(immigrant_status, regex("landed", ignore_case = TRUE))         ~ "Total Landed Immigrants",
-      TRUE                                                                       ~ NA_character_
+      str_detect(immigrant_status, regex("landed", ignore_case = TRUE)) ~ "Total Landed Immigrants",
+      TRUE ~ NA_character_
     )
   ) %>%
   filter(!is.na(immig_group)) %>%
   group_by(year, immig_group) %>%
   summarise(mean_wage = mean(wage_both, na.rm = TRUE), .groups = "drop")
 
-ggplot(wages_univ, aes(x = year, y = mean_wage, 
-                        colour = immig_group, 
-                        group = immig_group)) +
-  geom_line(linewidth = 1) + geom_point(size = 1.8, alpha = 0.9) +      
+ggplot(wages_univ, aes(
+  x = year, y = mean_wage,
+  colour = immig_group,
+  group = immig_group
+)) +
+  geom_line(linewidth = 1) +
+  geom_point(size = 1.8, alpha = 0.9) +
   scale_colour_manual(
     values = c("Born in Canada" = "#2a9d8f", "Total Landed Immigrants" = "#f4a261"),
     name   = "Worker Group"
   ) +
   scale_y_continuous(labels = scales::dollar_format(prefix = "$", suffix = "/hr")) +
-  scale_x_continuous(breaks = scales::pretty_breaks(n = 7)) + 
+  scale_x_continuous(breaks = scales::pretty_breaks(n = 7)) +
   labs(
     title    = "University Degree Holders: Immigrants vs. Canadian-Born",
     subtitle = "Mean of median hourly wages (CAD/hr) — Ontario, age 25+",
     x        = "Year",
-    y        = "Mean Wage (CAD/hr)",           
+    y        = "Mean Wage (CAD/hr)",
     caption  = "Source: Ontario MLITSD. Data filtered to 'University degree' only."
-  ) + theme_minimal(base_size = 9) +  theme(
+  ) +
+  theme_minimal(base_size = 9) +
+  theme(
     axis.title.y = element_text(margin = margin(r = 10)),
     plot.title = element_text(face = "bold", size = 10, hjust = 0.5),
     plot.subtitle = element_text(colour = "grey40", size = 8, hjust = 0.5),
@@ -312,57 +377,14 @@ ggplot(wages_univ, aes(x = year, y = mean_wage,
 
 ## Hypothesis testing
 
-We are testing whether mean wages differ by education level. For inference, we use a two-sample t-test on "University degree" vs "High school graduate" to estimate both significance and the 95% confidence interval for the mean difference.
-Null hypothesis: The mean wage is the same for these two education groups.
-Alternative hypothesis: The mean wage is different between these two education groups.
-
-```{r hypothesis-tests-education-asad, eval=TRUE}
-wages_without_total <- wages %>% filter(education_level != "Total, all education levels")
-# Summaries use the numeric wage columns (WAGE RATE is only the label "Median hourly wage").
-wages_by_education <- wages_without_total %>%
-  group_by(education_level) %>%
-  summarise(mean_wage = mean(wage_both, na.rm = TRUE), .groups = "drop")
-kable(wages_by_education, caption = "Mean of wage_both (median hourly wage) by education level")
-
-# t-test needs exactly TWO groups on the right-hand side — filter to two education levels, then test on row-level values.
-two_edu <- wages_without_total %>%
-  filter(education_level %in% c("University degree", "High school graduate"))
-edu_test <- t.test(wage_both ~ education_level, data = two_edu)
-kable(
-  ttest_to_long_table(
-    edu_test,
-    "High school graduate",
-    "University degree",
-    "High school graduate - University degree"
-  ),
-  caption = "Welch two-sample t-test for high school graduates vs university degree holders"
-)
-```
-**Interpretation.** The summary table compares all education categories, while the t-test focuses on "University degree" versus "High school graduate." The 95% confidence interval for the mean difference (High school - University) is approximately [-13.07, -10.42], which does not include 0. Therefore, we reject the null hypothesis and conclude with at least 95% confidence that university-degree workers have a higher mean wage than high-school graduates. This directly supports the research question that education level is associated with wage differences.
-
-Next, we test whether mean wages differ by immigrant status using a two-sample t-test for "Born in Canada" versus "Established immigrants, 10+ years," again using the test to obtain a 95% confidence interval for the mean difference.
+We test whether mean wages differ by immigrant status using a two-sample t-test for "Born in Canada" versus "Established immigrants, 10+ years," again using the test to obtain a 95% confidence interval for the mean difference.
 Null hypothesis: The mean wage is the same for these two immigrant-status groups.
 Alternative hypothesis: The mean wage is different between these two immigrant-status groups.
-```{r hypothesis-tests-immigrant-asad, eval=TRUE}
-wages_without_total <- wages %>% filter(immigrant_status != "Total, all immigrant status")
-
-# Summaries use the numeric wage columns (WAGE RATE is only the label "Median hourly wage").
-wages_by_immigrant_status <- wages_without_total %>%
-  group_by(immigrant_status) %>%
-  summarise(mean_wage = mean(wage_both, na.rm = TRUE), .groups = "drop")
-kable(wages_by_immigrant_status, caption = "Mean of wage_both (median hourly wage) by immigrant status")
-
-two_immigrant_status <- wages_without_total %>%
-  filter(immigrant_status %in% c("Born in Canada", "Established immigrants, 10+ years"))
-immigrant_test <- t.test(wage_both ~ immigrant_status, data = two_immigrant_status)
-kable(
-  ttest_to_long_table(
-    immigrant_test,
-    "Born in Canada",
-    "Established immigrants, 10+ years",
-    "Born in Canada - Established immigrants, 10+ years"
-  ),
-  caption = "Welch two-sample t-test for Canadian-born vs established immigrants"
+```{r hypothesis-tests-immigrant, eval=TRUE}
+run_immigrant_status_test(
+  wages %>% filter(immigrant_status != "Total, all immigrant status"),
+  "Mean of wage_both (median hourly wage) by immigrant status",
+  "Welch two-sample t-test for Canadian-born vs established immigrants"
 )
 ```
 
@@ -371,30 +393,17 @@ kable(
 Finally, we test whether immigrant-status wage differences remain within the university-educated subgroup using a two-sample t-test for "Born in Canada" versus "Established immigrants, 10+ years," and we use its 95% confidence interval for the mean difference.
 Null hypothesis: The mean wage is the same for these two immigrant-status groups among university-educated workers.
 Alternative hypothesis: The mean wage is different between these two immigrant-status groups among university-educated workers.
-```{r hypothesis-tests-university-immigrant-asad, eval=TRUE}
-wages_without_total <- wages %>% filter(education_level == "University degree")
-wages_by_immigrant_status <- wages_without_total %>%
-  group_by(immigrant_status) %>%
-  summarise(mean_wage = mean(wage_both, na.rm = TRUE), .groups = "drop")
-kable(wages_by_immigrant_status, caption = "Mean of wage_both (median hourly wage) by immigrant status")
-
-two_immigrant_status <- wages_without_total %>%
-  filter(immigrant_status %in% c("Born in Canada", "Established immigrants, 10+ years"))
-university_immigrant_test <- t.test(wage_both ~ immigrant_status, data = two_immigrant_status)
-kable(
-  ttest_to_long_table(
-    university_immigrant_test,
-    "Born in Canada",
-    "Established immigrants, 10+ years",
-    "Born in Canada - Established immigrants, 10+ years"
-  ),
-  caption = "Welch two-sample t-test within university graduates"
+```{r hypothesis-tests-university-immigrant, eval=TRUE}
+run_immigrant_status_test(
+  wages %>% filter(education_level == "University degree"),
+  "Mean of wage_both (median hourly wage) by immigrant status",
+  "Welch two-sample t-test within university graduates"
 )
 ```
 
 **Interpretation.** This final t-test focuses only on university-educated respondents. The 95% confidence interval for the mean difference (Born in Canada - Established immigrants) is approximately [1.88, 7.13], which does not include 0. Therefore, we reject the null hypothesis and conclude with at least 95% confidence that, even among university graduates, Canadian-born workers in this comparison have a higher mean wage. This addresses the third research question and supports the interpretation that the gap is not only an education effect.
 
-Taken together, these three t-tests show that wages differ significantly by education level, by immigrant status, and within the university-educated subgroup by immigrant status. Because none of the estimated confidence intervals include 0, each comparison provides evidence of a meaningful difference in mean wages. Overall, this strengthens the report's central conclusion: education is associated with higher wages, but the returns to education do not appear to be distributed equally across immigrant groups, which is consistent with the glass-ceiling framing in Ontario's labour market.
+Taken together, these two t-tests show that wages differ significantly by immigrant status, both overall and within the university-educated subgroup. Because neither estimated confidence interval includes 0, each comparison provides evidence of a meaningful difference in mean wages. Overall, this strengthens the report's central conclusion that returns are not distributed equally across immigrant groups, which is consistent with the glass-ceiling framing in Ontario's labour market.
 
 ## Bootstrapping
 
@@ -402,72 +411,52 @@ Bootstrapping gives us a second way to assess uncertainty in the estimated wage 
 
 In this section, we bootstrap the same three comparisons used in the hypothesis tests: university graduates versus high school graduates, Canadian-born workers versus established immigrants, and Canadian-born versus established immigrants within the university-educated subgroup. For each comparison, we use 1000 bootstrap resamples and report the 95% bootstrap confidence interval for the difference in mean wages.
 
-```{r bootstrap-asad, fig.cap="Bootstrap distributions for the mean wage differences across the three main comparisons.", eval=TRUE, fig.width=7.5, fig.height=9, fig.align='center', out.width='95%'}
+```{r bootstrap, fig.cap="Bootstrap distributions for the mean wage differences across the three main comparisons.", eval=TRUE, fig.width=7.5, fig.height=9, fig.align='center', out.width='95%'}
 set.seed(123)
 
-bootstrap_mean_diff <- function(group_a, group_b, reps = 1000) {
-  group_a <- group_a[!is.na(group_a)]
-  group_b <- group_b[!is.na(group_b)]
-  replicate(reps, {
-    mean(sample(group_a, size = length(group_a), replace = TRUE)) -
-      mean(sample(group_b, size = length(group_b), replace = TRUE))
-  })
-}
-
-university <- wages %>% filter(education_level == "University degree")
-highschool <- wages %>% filter(education_level == "High school graduate")
-education_boot <- bootstrap_mean_diff(university$wage_both, highschool$wage_both)
-
-born_canada <- wages %>% filter(immigrant_status == "Born in Canada")
-established_immigrants <- wages %>% filter(immigrant_status == "Established immigrants, 10+ years")
-immigrant_boot <- bootstrap_mean_diff(born_canada$wage_both, established_immigrants$wage_both)
-
-university_only <- wages %>% filter(education_level == "University degree")
-born_canada_uni <- university_only %>% filter(immigrant_status == "Born in Canada")
-established_immigrants_uni <- university_only %>% filter(immigrant_status == "Established immigrants, 10+ years")
-university_immigrant_boot <- bootstrap_mean_diff(
-  born_canada_uni$wage_both,
-  established_immigrants_uni$wage_both
-)
-
-bootstrap_plot_data <- tibble(
-  mean_difference = c(
-    education_boot,
-    immigrant_boot,
-    university_immigrant_boot
+bootstrap_specs <- tibble(
+  comparison_plot = c(
+    "University degree - High school graduate",
+    "Born in Canada - Established immigrants, 10+ years",
+    "Born in Canada - Established immigrants, 10+ years\n(University only)"
   ),
-  comparison = factor(
-    c(
-      rep("University degree - High school graduate", length(education_boot)),
-      rep("Born in Canada - Established immigrants, 10+ years", length(immigrant_boot)),
-      rep("Born in Canada - Established immigrants, 10+ years\n(University only)", length(university_immigrant_boot))
-    ),
-    levels = c(
-      "University degree - High school graduate",
-      "Born in Canada - Established immigrants, 10+ years",
-      "Born in Canada - Established immigrants, 10+ years\n(University only)"
-    )
-  )
+  comparison_table = c(
+    "University degree - High school graduate",
+    "Born in Canada - Established immigrants, 10+ years",
+    "Born in Canada - Established immigrants, 10+ years (University only)"
+  ),
+  group_var = c("education_level", "immigrant_status", "immigrant_status"),
+  group_a = c("University degree", "Born in Canada", "Born in Canada"),
+  group_b = c("High school graduate", "Established immigrants, 10+ years", "Established immigrants, 10+ years"),
+  subset_education = c(NA_character_, NA_character_, "University degree")
 )
 
-bootstrap_ci_lines <- tibble(
-  comparison = factor(
-    c(
-      "University degree - High school graduate",
-      "University degree - High school graduate",
-      "Born in Canada - Established immigrants, 10+ years",
-      "Born in Canada - Established immigrants, 10+ years",
-      "Born in Canada - Established immigrants, 10+ years\n(University only)",
-      "Born in Canada - Established immigrants, 10+ years\n(University only)"
+bootstrap_results <- bootstrap_specs %>%
+  mutate(
+    boot = pmap(
+      list(group_var, group_a, group_b, subset_education),
+      \(group_var, group_a, group_b, subset_education) {
+        data_use <- wages
+        if (!is.na(subset_education)) {
+          data_use <- data_use %>% filter(education_level == subset_education)
+        }
+        bootstrap_from_groups(data_use, group_var, group_a, group_b, reps = 1000)
+      }
     ),
-    levels = levels(bootstrap_plot_data$comparison)
-  ),
-  xintercept = c(
-    quantile(education_boot, probs = c(0.025, 0.975)),
-    quantile(immigrant_boot, probs = c(0.025, 0.975)),
-    quantile(university_immigrant_boot, probs = c(0.025, 0.975))
+    bootstrap_mean_difference = map_dbl(boot, mean),
+    ci_lower = map_dbl(boot, ~ quantile(.x, 0.025)),
+    ci_upper = map_dbl(boot, ~ quantile(.x, 0.975))
   )
-)
+
+bootstrap_plot_data <- bootstrap_results %>%
+  select(comparison_plot, boot) %>%
+  unnest_longer(boot, values_to = "mean_difference") %>%
+  mutate(comparison = factor(comparison_plot, levels = bootstrap_specs$comparison_plot))
+
+bootstrap_ci_lines <- bootstrap_results %>%
+  select(comparison_plot, ci_lower, ci_upper) %>%
+  pivot_longer(c(ci_lower, ci_upper), values_to = "xintercept") %>%
+  mutate(comparison = factor(comparison_plot, levels = bootstrap_specs$comparison_plot))
 
 ggplot(bootstrap_plot_data, aes(x = mean_difference)) +
   geom_histogram(bins = 30, fill = "#8fb9a8", color = "white") +
@@ -490,44 +479,18 @@ ggplot(bootstrap_plot_data, aes(x = mean_difference)) +
     plot.title = element_text(face = "bold", hjust = 0.5)
   )
 
-bootstrap_summary <- tibble(
-  comparison = c(
-    "University degree - High school graduate",
-    "Born in Canada - Established immigrants, 10+ years",
-    "Born in Canada - Established immigrants, 10+ years (University only)"
-  ),
-  bootstrap_mean_difference = c(
-    mean(education_boot),
-    mean(immigrant_boot),
-    mean(university_immigrant_boot)
-  ),
-  ci_lower = c(
-    quantile(education_boot, 0.025),
-    quantile(immigrant_boot, 0.025),
-    quantile(university_immigrant_boot, 0.025)
-  ),
-  ci_upper = c(
-    quantile(education_boot, 0.975),
-    quantile(immigrant_boot, 0.975),
-    quantile(university_immigrant_boot, 0.975)
+bootstrap_summary_long <- bootstrap_results %>%
+  transmute(
+    Comparison = comparison_table,
+    `Bootstrap mean difference` = bootstrap_mean_difference,
+    `95% CI lower` = ci_lower,
+    `95% CI upper` = ci_upper
+  ) %>%
+  pivot_longer(
+    cols = -Comparison,
+    names_to = "Metric",
+    values_to = "Value"
   )
-)
-
-bootstrap_summary_long <- tibble(
-  Comparison = rep(bootstrap_summary$comparison, each = 3),
-  Metric = rep(c("Bootstrap mean difference", "95% CI lower", "95% CI upper"), times = nrow(bootstrap_summary)),
-  Value = c(
-    bootstrap_summary$bootstrap_mean_difference[1],
-    bootstrap_summary$ci_lower[1],
-    bootstrap_summary$ci_upper[1],
-    bootstrap_summary$bootstrap_mean_difference[2],
-    bootstrap_summary$ci_lower[2],
-    bootstrap_summary$ci_upper[2],
-    bootstrap_summary$bootstrap_mean_difference[3],
-    bootstrap_summary$ci_lower[3],
-    bootstrap_summary$ci_upper[3]
-  )
-)
 
 kable(
   bootstrap_summary_long,
@@ -546,25 +509,28 @@ Overall, the bootstrap analysis strengthens the inference section by showing tha
 
 ## Regression analysis
 ```{r regression, eval=TRUE}
-#Prepare Data
+# Prepare Data
 wages_model <- wages %>%
-  mutate(education_level = relevel(factor(education_level, ordered = FALSE), ref = "High school graduate"),
-          immigrant_status = relevel(factor(immigrant_status), ref = "Born in Canada")) %>% 
-  filter(!is.na(wage_both),!is.na(education_level),!is.na(immigrant_status))
+  mutate(
+    education_level = relevel(factor(education_level, ordered = FALSE), ref = "High school graduate"),
+    immigrant_status = relevel(factor(immigrant_status), ref = "Born in Canada")
+  ) %>%
+  filter(!is.na(wage_both), !is.na(education_level), !is.na(immigrant_status))
 
 wages_model <- wages_model %>% mutate(year_centered = year - 2006)
 
-#Regression Model
+# Regression Model
 fit_mlr <- lm(wage_both ~ education_level + immigrant_status + year_centered, data = wages_model)
 
-#Extract Results
+# Extract Results
 coef_mat <- summary(fit_mlr)$coefficients
 
-#Create Table with Results
-reg_table <- tibble::tibble(term = rownames(coef_mat),estimate = coef_mat[, 1],p_value = coef_mat[, 4]) 
+# Create Table with Results
+reg_table <- tibble::tibble(term = rownames(coef_mat), estimate = coef_mat[, 1], p_value = coef_mat[, 4])
 
-#Clean labels
-reg_table_clean <- reg_table %>% mutate(term = stringr::str_remove_all(term, "education_level|immigrant_status")) %>%
+# Clean labels
+reg_table_clean <- reg_table %>%
+  mutate(term = stringr::str_remove_all(term, "education_level|immigrant_status")) %>%
   mutate(term = ifelse(term == "(Intercept)", "Baseline (High School / Born in Canada)", term))
 
 # Keep only important variables
@@ -581,7 +547,7 @@ important_terms <- c(
   "year_centered"
 )
 
-#Name cleaning
+# Name cleaning
 reg_table_compact <- reg_table_clean %>%
   filter(term %in% important_terms) %>%
   mutate(
@@ -596,10 +562,9 @@ reg_table_compact <- reg_table_clean %>%
     ),
     p_value = ifelse(p_value < 0.001, "<0.001", sprintf("%.3f", p_value))
   ) %>%
-  transmute(Variable = term, Estimate = round(estimate, 3),`p-value` = p_value)
+  transmute(Variable = term, Estimate = round(estimate, 3), `p-value` = p_value)
 
-knitr::kable(reg_table_compact, booktabs = TRUE, caption = "Key Regression Coefficients for Median Hourly Wage (CAD/hr)"
-)
+knitr::kable(reg_table_compact, booktabs = TRUE, caption = "Key Regression Coefficients for Median Hourly Wage (CAD/hr)")
 ```
 **Interpretation.** The linear regression model shows that education is strongly associated with higher wages, but the wage gap for those with immigrant-status remains. The baseline group (high school graduates born in Canada in 2006) has a predicted wage of 18.595 CAD/hr. Compared to this baseline, those with university-level education have higher wages (University degree +11.745, Bachelor’s +9.196, Above bachelor’s +16.303 CAD/hr, all p < 0.001 so the results are strongly supported). Those with lower education categories are associated with lower wages. The only education category without a clear difference is some post-secondary (-0.147 CAD/hr, p = 0.744, but as p value is high, results are not as accurate).
 
@@ -611,16 +576,19 @@ Those with an immigrant-status earn less than Canadian-born workers, even after 
 # 4-fold cross-validation
 set.seed(123)
 
-d <- wages %>% mutate( education_level = relevel(factor(as.character(education_level), ordered = FALSE), ref = "High school graduate"),
-                       immigrant_status = relevel(factor(immigrant_status), ref = "Born in Canada"),
-                       year_centered = year - 2006) %>%
+d <- wages %>%
+  mutate(
+    education_level = relevel(factor(as.character(education_level), ordered = FALSE), ref = "High school graduate"),
+    immigrant_status = relevel(factor(immigrant_status), ref = "Born in Canada"),
+    year_centered = year - 2006
+  ) %>%
   filter(!is.na(wage_both), !is.na(education_level), !is.na(immigrant_status), !is.na(year_centered))
 
 k <- 4
 d <- d %>% mutate(group_ind = sample(1:k, size = nrow(d), replace = TRUE))
 mse_vec <- numeric(k)
 
-#Perform cross-validation
+# Perform cross-validation
 for (i in 1:k) {
   d.train <- d %>% filter(group_ind != i)
   d.test <- d %>% filter(group_ind == i)
@@ -632,7 +600,7 @@ for (i in 1:k) {
 # TABLE 1: Detailed Fold Results
 cv_results <- tibble::tibble(Fold = paste0("Fold ", 1:k), `MSE ((CAD/hr)^2)` = round(mse_vec, 3))
 
-knitr::kable(cv_results, booktabs = TRUE, caption = "4-Fold Cross-Validation: Mean Squared Error by Fold", escape = FALSE)%>%
+knitr::kable(cv_results, booktabs = TRUE, caption = "4-Fold Cross-Validation: Mean Squared Error by Fold", escape = FALSE) %>%
   kableExtra::kable_styling(latex_options = "hold_position")
 
 # TABLE 2: Summary Metrics
@@ -658,9 +626,7 @@ Taken together, these results support the glass-ceiling interpretation that educ
 
 # Appendix: All code
 
-**LABEL (remove before submission):** Ensure this lists the final, clean versions of everyone's chunks (knitr will pull in the labeled chunks below). If you rename chunks, update `ref.label` accordingly.
-
-```{r appendix-all-code, ref.label=c("libraries", "data-load", "table1-summary", "graph1-immigrant-trend", "graph2-university-immigrant", "hypothesis-tests-education-asad", "hypothesis-tests-immigrant-asad", "hypothesis-tests-university-immigrant-asad", "ci-asad", "bootstrap-asad", "regression-ishan", "cross-validation-ishan"), echo=TRUE, eval=FALSE}
+```{r appendix-all-code, ref.label=c("libraries", "data-load", "table1-summary", "graph1-immigrant-trend", "graph2-university-immigrant", "hypothesis-tests-immigrant", "hypothesis-tests-university-immigrant", "bootstrap", "regression", "cross-validation"), echo=TRUE, eval=FALSE}
 ```
 
 # References
