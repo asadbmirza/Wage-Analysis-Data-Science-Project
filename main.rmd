@@ -407,28 +407,24 @@ Taken together, these two t-tests show that wages differ significantly by immigr
 
 ## Bootstrapping
 
-Bootstrapping gives us a second way to assess uncertainty in the estimated wage gaps. Unlike the t-test, which relies on distributional assumptions, bootstrap resampling repeatedly samples from the observed data with replacement and builds an empirical distribution of the mean difference. This is especially useful here because wage data can be skewed and may not follow a perfectly normal distribution.
+Bootstrapping provides a non-parametric check of the immigrant-status wage gaps by repeatedly resampling the observed data with replacement.
 
-In this section, we bootstrap the same three comparisons used in the hypothesis tests: university graduates versus high school graduates, Canadian-born workers versus established immigrants, and Canadian-born versus established immigrants within the university-educated subgroup. For each comparison, we use 1000 bootstrap resamples and report the 95% bootstrap confidence interval for the difference in mean wages.
-
-```{r bootstrap, fig.cap="Bootstrap distributions for the mean wage differences across the three main comparisons.", eval=TRUE, fig.width=7.5, fig.height=9, fig.align='center', out.width='95%'}
+```{r bootstrap, fig.cap="Bootstrap distributions of mean wage differences for the two immigrant-status comparisons.", eval=TRUE, fig.width=7, fig.height=4.2, fig.align='center', out.width='88%'}
 set.seed(123)
 
 bootstrap_specs <- tibble(
   comparison_plot = c(
-    "University degree - High school graduate",
     "Born in Canada - Established immigrants, 10+ years",
     "Born in Canada - Established immigrants, 10+ years\n(University only)"
   ),
   comparison_table = c(
-    "University degree - High school graduate",
     "Born in Canada - Established immigrants, 10+ years",
     "Born in Canada - Established immigrants, 10+ years (University only)"
   ),
-  group_var = c("education_level", "immigrant_status", "immigrant_status"),
-  group_a = c("University degree", "Born in Canada", "Born in Canada"),
-  group_b = c("High school graduate", "Established immigrants, 10+ years", "Established immigrants, 10+ years"),
-  subset_education = c(NA_character_, NA_character_, "University degree")
+  group_var = c("immigrant_status", "immigrant_status"),
+  group_a = c("Born in Canada", "Born in Canada"),
+  group_b = c("Established immigrants, 10+ years", "Established immigrants, 10+ years"),
+  subset_education = c(NA_character_, "University degree")
 )
 
 bootstrap_results <- bootstrap_specs %>%
@@ -467,41 +463,38 @@ ggplot(bootstrap_plot_data, aes(x = mean_difference)) +
     linewidth = 0.8,
     linetype = "dashed"
   ) +
-  facet_wrap(~comparison, ncol = 1, scales = "free_y") +
+  facet_wrap(~comparison, ncol = 2, scales = "free_y") +
   labs(
-    title = "Bootstrap Distributions of Mean Wage Differences",
+    title = "Bootstrap Mean Difference Distributions",
     x = "Bootstrap mean difference",
     y = "Count"
   ) +
-  theme_minimal(base_size = 11) +
+  theme_minimal(base_size = 10) +
   theme(
     strip.text = element_text(face = "bold"),
     plot.title = element_text(face = "bold", hjust = 0.5)
   )
 
-bootstrap_summary_long <- bootstrap_results %>%
+bootstrap_summary <- bootstrap_results %>%
   transmute(
     Comparison = comparison_table,
-    `Bootstrap mean difference` = bootstrap_mean_difference,
-    `95% CI lower` = ci_lower,
-    `95% CI upper` = ci_upper
-  ) %>%
-  pivot_longer(
-    cols = -Comparison,
-    names_to = "Metric",
-    values_to = "Value"
+    `Bootstrap mean diff` = bootstrap_mean_difference,
+    `95% CI` = paste0("[", round(ci_lower, 3), ", ", round(ci_upper, 3), "]")
   )
 
 kable(
-  bootstrap_summary_long,
+  bootstrap_summary,
   digits = 3,
-  caption = "Bootstrap 95% confidence intervals for mean wage differences"
-)
+  caption = "Bootstrap 95\\% confidence intervals for mean wage differences"
+) %>%
+  kableExtra::kable_styling(
+    latex_options = "hold_position",
+    full_width = FALSE,
+    font_size = 9
+  )
 ```
 
-**Interpretation.** The bootstrap results reinforce the conclusions from the t-tests. If the 95% bootstrap confidence interval for a mean difference does not include 0, that indicates the estimated wage gap remains consistently positive or negative across repeated resamples of the data. For the education comparison, this supports the conclusion that university graduates earn more on average than high school graduates. For the two immigrant-status comparisons, bootstrap intervals that remain above 0 support the conclusion that Canadian-born workers earn more on average than established immigrants, both overall and within the university-educated subgroup.
-
-Overall, the bootstrap analysis strengthens the inference section by showing that the main findings are not driven only by the assumptions of the t-test. Because the resampled confidence intervals tell the same story as the analytical confidence intervals, we have stronger evidence that the observed wage gaps are real and consistent with the report's glass-ceiling interpretation.
+**Interpretation.** Both bootstrap intervals stay above 0, matching the t-test conclusions: Canadian-born workers earn more on average than established immigrants, both overall and within university graduates. This indicates the finding is robust to distributional assumptions.
 
 \newpage
 
