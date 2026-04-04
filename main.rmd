@@ -377,39 +377,62 @@ ggplot(wages_univ, aes(
 
 ## Hypothesis testing
 
-We test whether mean wages differ by immigrant status using a two-sample t-test for "Born in Canada" versus "Established immigrants, 10+ years," again using the test to obtain a 95% confidence interval for the mean difference.
-Null hypothesis: The mean wage is the same for these two immigrant-status groups.
-Alternative hypothesis: The mean wage is different between these two immigrant-status groups.
+We use Welch two-sample t-tests to assess whether wages differ by immigrant status for "Born in Canada" versus "Established immigrants, 10+ years." The comparison is run in two samples: the overall dataset and the university-only subgroup. This lets us test whether the gap persists even when education is held constant.
+Null hypothesis: mean wages are equal between the two groups.
+Alternative hypothesis: mean wages differ.
+
 ```{r hypothesis-tests-immigrant, eval=TRUE}
-run_immigrant_status_test(
-  wages %>% filter(immigrant_status != "Total, all immigrant status"),
-  "Mean of wage_both (median hourly wage) by immigrant status",
-  "Welch two-sample t-test for Canadian-born vs established immigrants"
-)
+immigrant_data <- wages %>%
+  filter(immigrant_status %in% c("Born in Canada", "Established immigrants, 10+ years"))
+
+immigrant_test <- t.test(wage_both ~ immigrant_status, data = immigrant_data)
+
+ttest_to_table(
+  immigrant_test,
+  "Born in Canada",
+  "Established immigrants, 10+ years",
+  "Born in Canada - Established immigrants, 10+ years"
+) %>%
+  transmute(
+    Sample = "Overall",
+    `Mean difference` = round(mean_difference, 3),
+    `95% CI` = sprintf("[%.3f, %.3f]", ci_lower, ci_upper),
+    `p-value` = format(p_value, digits = 3, scientific = TRUE)
+  ) %>%
+  kable(caption = "Welch t-test summary: overall sample")
 ```
 
-**Interpretation.** The summary table shows all immigrant-status categories, and the t-test isolates "Born in Canada" versus "Established immigrants, 10+ years." The 95% confidence interval for the mean difference (Born in Canada - Established immigrants) is approximately [0.97, 4.82], which does not include 0. Therefore, we reject the null hypothesis and conclude with at least 95% confidence that Canadian-born workers in this comparison have a higher mean wage. This supports the second research question by showing a wage gap by immigrant status(the highest wage average immigrant status in fact).
-
-Finally, we test whether immigrant-status wage differences remain within the university-educated subgroup using a two-sample t-test for "Born in Canada" versus "Established immigrants, 10+ years," and we use its 95% confidence interval for the mean difference.
-Null hypothesis: The mean wage is the same for these two immigrant-status groups among university-educated workers.
-Alternative hypothesis: The mean wage is different between these two immigrant-status groups among university-educated workers.
 ```{r hypothesis-tests-university-immigrant, eval=TRUE}
-run_immigrant_status_test(
-  wages %>% filter(education_level == "University degree"),
-  "Mean of wage_both (median hourly wage) by immigrant status",
-  "Welch two-sample t-test within university graduates"
-)
+university_data <- wages %>%
+  filter(
+    education_level == "University degree",
+    immigrant_status %in% c("Born in Canada", "Established immigrants, 10+ years")
+  )
+
+university_immigrant_test <- t.test(wage_both ~ immigrant_status, data = university_data)
+
+ttest_to_table(
+  university_immigrant_test,
+  "Born in Canada",
+  "Established immigrants, 10+ years",
+  "Born in Canada - Established immigrants, 10+ years"
+) %>%
+  transmute(
+    Sample = "University only",
+    `Mean difference` = round(mean_difference, 3),
+    `95% CI` = sprintf("[%.3f, %.3f]", ci_lower, ci_upper),
+    `p-value` = format(p_value, digits = 3, scientific = TRUE)
+  ) %>%
+  kable(caption = "Welch t-test summary: university-only sample")
 ```
 
-**Interpretation.** This final t-test focuses only on university-educated respondents. The 95% confidence interval for the mean difference (Born in Canada - Established immigrants) is approximately [1.88, 7.13], which does not include 0. Therefore, we reject the null hypothesis and conclude with at least 95% confidence that, even among university graduates, Canadian-born workers in this comparison have a higher mean wage. This addresses the third research question and supports the interpretation that the gap is not only an education effect.
-
-Taken together, these two t-tests show that wages differ significantly by immigrant status, both overall and within the university-educated subgroup. Because neither estimated confidence interval includes 0, each comparison provides evidence of a meaningful difference in mean wages. Overall, this strengthens the report's central conclusion that returns are not distributed equally across immigrant groups, which is consistent with the glass-ceiling framing in Ontario's labour market.
+**Interpretation.** In both samples, the estimated mean difference (Born in Canada - Established immigrants) is positive, and each 95% confidence interval lies entirely above 0. The p value for each is also incredibly small(lower than 0.05). We therefore reject the null hypothesis in both tests. The overall-sample result indicates a broad immigrant-status wage gap, while the university-only result shows the gap remains even among workers with the same higher-education category. Together, these tests support the report's core claim that wage returns are not distributed equally across immigrant groups.
 
 ## Bootstrapping
 
-Bootstrapping provides a non-parametric check of the immigrant-status wage gaps by repeatedly resampling the observed data with replacement.
+Bootstrapping provides a non-parametric check of the immigrant-status wage gaps by repeatedly resampling the observed data with replacement. Unlike the t-test, it does not rely as strongly on normality assumptions for the sampling distribution of the mean difference. Here, we bootstrap the same two comparisons from the hypothesis tests (overall and university-only) to verify that the direction and size of the wage gap are stable under resampling.
 
-```{r bootstrap, fig.cap="Bootstrap distributions of mean wage differences for the two immigrant-status comparisons.", eval=TRUE, fig.width=7, fig.height=4.2, fig.align='center', out.width='88%'}
+```{r bootstrap, fig.cap="Bootstrap distributions of mean wage differences for the two immigrant-status comparisons.", eval=TRUE, fig.width=7, fig.height=4.2, fig.align='center', out.width='88%', fig.pos='H'}
 set.seed(123)
 
 bootstrap_specs <- tibble(
@@ -495,8 +518,6 @@ kable(
 ```
 
 **Interpretation.** Both bootstrap intervals stay above 0, matching the t-test conclusions: Canadian-born workers earn more on average than established immigrants, both overall and within university graduates. This indicates the finding is robust to distributional assumptions.
-
-\newpage
 
 # The Model and Conclusion
 
@@ -614,8 +635,6 @@ Overall, the evidence indicates that education is strongly associated with highe
 The regression model confirms that higher education categories are associated with higher hourly wages after controlling for time, while several immigrant-status groups remain at a wage disadvantage relative to Canadian-born workers. Cross-validation results also suggest moderate and stable out-of-sample predictive performance, supporting the reliability of the model findings.
 
 Taken together, these results support the glass-ceiling interpretation that education does improve earnings on average, but these earnings are not equally distributed across groups. This suggests the need for stronger educational recognition and improved newcomer wages, to ensure fairer wage returns to education in Ontario regardless of status.
-
-\newpage
 
 # Appendix: All code
 
